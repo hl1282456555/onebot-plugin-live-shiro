@@ -19,7 +19,7 @@ config = get_plugin_config(Config)
 
 select_client("httpx")
 
-import importlib
-
-for _m in ("common", "alive", "bible", "bilibili"):
-    importlib.import_module(f".{_m}", __name__)
+from . import alive
+from . import bible
+from . import common
+from . import bilibili
