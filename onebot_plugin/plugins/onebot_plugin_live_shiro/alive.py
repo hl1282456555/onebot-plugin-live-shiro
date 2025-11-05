@@ -15,9 +15,9 @@ async def shiro_sleep_clock():
         return
     await bot.send_group_msg(group_id=0, message=Message([
             MessageSegment.at(""),
-            MessageSegment.text("嘀嘀嘀，睡觉提醒服务时间")
+            MessageSegment.text("老大，睡觉时间到了喵，早点休息喵~")
         ]))
 
-scheduler.add_job(shiro_sleep_clock, trigger="cron", hour=2, minute=0, id="job_shiro_sleep_clock")
+scheduler.add_job(shiro_sleep_clock, trigger="cron", hour=1, minute=0, id="job_shiro_sleep_clock")
 
 __all__ = ["alive_command"]

@@ -38,4 +38,25 @@ class DynamicType(Enum):
                 return cls.NONE
         return cls.NONE
 
+class MajorType(Enum):
+    MAJOR_TYPE_NONE             = (0)
+    MAJOR_TYPE_FORWARD          = (1)
+    MAJOR_TYPE_OPUS             = (2)
+    MAJOR_TYPE_ARCHIVE          = (3)
+    MAJOR_TYPE_PGC              = (4)
+    MAJOR_TYPE_COURSES          = (5)
+    MAJOR_TYPE_DRAW             = (6)
+    MAJOR_TYPE_ARTICLE          = (7)
+    MAJOR_TYPE_MUSIC            = (8)
+    MAJOR_TYPE_COMMON           = (9)
+    MAJOR_TYPE_LIVE             = (10)
+    MAJOR_TYPE_MEDIALIST        = (11)
+    MAJOR_TYPE_APPLET           = (12)
+    MAJOR_TYPE_SUBSCRIPTION     = (13)
+    MAJOR_TYPE_LIVE_RCMD        = (14)
+    MAJOR_TYPE_UGC_SEASON       = (15)
+    MAJOR_TYPE_SUBSCRIPTION_NEW = (16)
+    MAJOR_TYPE_UPOWER_COMMON    = (17)
+
 __all__ = ["DynamicType"]
+
