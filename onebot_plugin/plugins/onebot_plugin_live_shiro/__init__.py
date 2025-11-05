@@ -1,11 +1,10 @@
-import importlib
+from nonebot import require
+
+require("nonebot_plugin_apscheduler")
 
 from bilibili_api import select_client
 from nonebot import get_plugin_config
 from nonebot.plugin import PluginMetadata
-
-for _m in ("common", "alive", "bible", "bilibili"):
-    importlib.import_module(f".{_m}", __name__)
 
 from .config import Config
 
@@ -20,4 +19,7 @@ config = get_plugin_config(Config)
 
 select_client("httpx")
 
+import importlib
 
+for _m in ("common", "alive", "bible", "bilibili"):
+    importlib.import_module(f".{_m}", __name__)
