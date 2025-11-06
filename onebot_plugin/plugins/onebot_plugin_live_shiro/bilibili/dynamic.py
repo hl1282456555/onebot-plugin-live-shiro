@@ -9,6 +9,10 @@ from nonebot_plugin_apscheduler import scheduler
 from ..config import Config
 from .dynamic_type import DynamicType, MajorType
 
+from pathlib import Path
+import time
+import json
+
 plugin_config = get_plugin_config(Config)
 
 async def fetch_all_dynamics(uid: int) -> list[dict]:
@@ -65,6 +69,36 @@ def pub_ts_to_str(pub_ts: int) -> str:
     """
     return datetime.fromtimestamp(pub_ts).strftime("%Y-%m-%d %H:%M:%S")  # noqa: DTZ006
 
+def write_data_to_file_with_timestamp(subdir: str, base_name: str, data: str, ext = "txt") -> None:
+    """
+    使用 pathlib 将数据写入文件，文件名为 base_name + 当前时间戳 + ext。
+    自动创建子目录（如果不存在）。
+
+    :param subdir: 子目录名
+    :param base_name: 文件名开头
+    :param data: 要写入的数据
+    :param ext: 文件扩展名，默认 txt
+    :return: 写入文件的完整路径
+    """
+    # 当前目录
+    cwd = Path.cwd()
+
+    # 子目录路径
+    dir_path = cwd / subdir
+    dir_path.mkdir(parents=True, exist_ok=True)  # 创建子目录（可创建多级目录）
+
+    # 当前时间戳
+    timestamp = int(time.time())
+
+    # 构造文件名
+    filename = f"{base_name}_{timestamp}.{ext}"
+    file_path = dir_path / filename
+
+    # 写入文件
+    file_path.write_text(data, encoding="utf-8")
+
+    logger.info(f"数据已写入文件: {file_path}")
+
 def process_jump_url(jump_url: str) -> str:
     return "https:" + jump_url if jump_url.startswith("//") else jump_url
 
@@ -105,25 +139,110 @@ async def process_dynamic_article(bot:Bot, group_id: int, major: dict, pub_time:
     await bot.send_group_msg(group_id=group_id, message=combined_message)
 
 async def process_dynamic_draw(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    pass
+    major_draw = major.get("draw")
+    if not major_draw:
+        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
+        return
+    
+    combined_message = Message([
+        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [图片] 动态喵！\n"),
+        MessageSegment.text(f'相簿ID：{major_draw.get("id", "未知")}\n')
+    ])
+
+    for item in major_draw.get("items", []):
+        if url := item.get("src"):
+            combined_message.append(MessageSegment.image(url))
+    
+    await bot.send_group_msg(group_id=group_id, message=combined_message)
 
 async def process_dynamic_archive(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    pass
+    major_archive = major.get("archive")
+    if not major_archive:
+        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
+        return
+    
+    combined_message = Message([
+        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [视频] 动态喵！\n"),
+        MessageSegment.text(f'标题：{major_archive.get("title", "无标题")}\n'),
+        MessageSegment.text(f'简介：{major_archive.get("desc", "无简介")}\n'),
+        MessageSegment.text(f'链接：{process_jump_url(major_archive.get("jump_url", "无链接"))}\n')
+    ])
+
+    if cover_url := major_archive.get("cover"):
+        combined_message.append(MessageSegment.image(cover_url + "@300w_169h_.jpg"))
+    
+    await bot.send_group_msg(group_id=group_id, message=combined_message)
 
 async def process_dynamic_live_rcmd(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    pass
+    write_data_to_file_with_timestamp("dynamic_context", "live_rcmd", json.dumps(major, ensure_ascii=False), "json")
+    await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了直播推荐动态喵，已保存详细信息到文件。"))
 
 async def process_dynamic_common(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    pass
+    major_common = major.get("common")
+    if not major_common:
+        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
+        return
+    
+    combined_message = Message([
+        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [普通] 动态喵！\n"),
+        MessageSegment.text(f'标题：{major_common.get("title", "无标题")}\n'),
+        MessageSegment.text(f'简介：{major_common.get("desc", "无简介")}\n'),
+        MessageSegment.text(f'链接：{process_jump_url(major_common.get("jump_url", "无链接"))}\n')
+    ])
+
+    if cover_url := major_common.get("cover"):
+        combined_message.append(MessageSegment.image(cover_url + "@300w_169h_.jpg"))
+    
+    await bot.send_group_msg(group_id=group_id, message=combined_message)
 
 async def process_dynamic_pgc(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    pass
+    major_pgc = major.get("pgc")
+    if not major_pgc:
+        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
+        return
+    
+    sub_type = major_pgc.get("sub_type", 0)
+    sub_type_map = {
+        1: "番剧",
+        2: "电影",
+        3: "纪录片",
+        4: "国创",
+        5: "电视剧",
+        6: "漫画",
+        7: "综艺"
+    }
+
+    combined_message = Message([
+        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [剧集-{sub_type_map.get(sub_type, '未知类型')}] 动态喵！\n"),
+        MessageSegment.text(f'标题：{major_pgc.get("title", "无标题")}\n'),
+        MessageSegment.text(f'链接：{process_jump_url(major_pgc.get("jump_url", "无链接"))}\n')
+    ])
+
+    if cover_url := major_pgc.get("cover"):
+        combined_message.append(MessageSegment.image(cover_url + "@300w_169h_.jpg"))
+    
+    await bot.send_group_msg(group_id=group_id, message=combined_message)
 
 async def process_dynamic_courses(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    pass
+    await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了 [课程] 动态瞄~"))
 
 async def process_dynamic_music(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    pass
+    major_music = major.get("music")
+    if not major_music:
+        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
+        return
+    
+    combined_message = Message([
+        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [音乐] 动态喵！\n"),
+        MessageSegment.text(f'标题：{major_music.get("title", "无标题")}\n'),
+        MessageSegment.text(f'分类：{major_music.get("label", "未知")}\n'),
+        MessageSegment.text(f'链接：{process_jump_url(major_music.get("jump_url", "无链接"))}\n')
+    ])
+
+    if cover_url := major_music.get("cover"):
+        combined_message.append(MessageSegment.image(cover_url + "@300w_169h_.jpg"))
+
+    await bot.send_group_msg(group_id=group_id, message=combined_message)
 
 async def process_dynamic_opus(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
     major_opus = major.get("opus")
@@ -178,7 +297,7 @@ async def process_dynamic_live(bot:Bot, group_id: int, major: dict, pub_time: st
         await bot.send_group_msg(group_id=group_id, message=end_message)
 
 async def process_dynamic_none(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    pass
+    await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布的动态失效了喵~"))
 
 async def process_dynamic_upower_common(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
     pass
@@ -258,7 +377,7 @@ async def get_latest_dynamic(bot: Bot, group_ids: list[int]) -> None:
 
         for group_id in group_ids:
             await bot.send_group_msg(group_id=group_id, message=Message([
-                    MessageSegment.text(f"Shiro 在 {pub_time} 发布了一条动态喵！\n"),
+                    MessageSegment.text(f"Shiro 在 {pub_time} 转发了一条动态喵！\n"),
                     MessageSegment.text(text)
                 ]))
     else:
