@@ -276,7 +276,7 @@ async def get_latest_dynamic(bot: Bot, group_ids: list[int]) -> None:
 test_common = on_command("test")
 @test_common.handle()
 async def _(bot):
-    if plugin_config.live_shiro_group_ids:
+    if not plugin_config.live_shiro_group_ids:
         logger.info("没有配置监听群列表，不查询Shiro的B站动态。")
         await test_common.finish("没有配置监听群列表，不查询Shiro的B站动态。")
     else:
