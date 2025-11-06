@@ -1,19 +1,21 @@
+import json
+import time
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from bilibili_api import user
-from nonebot import get_bot, get_plugin_config, logger, on_command
-from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment
+from nonebot import get_bot, get_plugin_config, logger
+from nonebot.adapters import Bot
+from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from nonebot_plugin_apscheduler import scheduler
 
 from ..config import Config
 from .dynamic_type import DynamicType, MajorType
 
-from pathlib import Path
-import time
-import json
-
 plugin_config = get_plugin_config(Config)
+
+last_dynamic_timestamp: int = int(time.time())
 
 async def fetch_all_dynamics(uid: int) -> list[dict]:
     """
@@ -319,10 +321,7 @@ dynamic_content_processors = {
 }
 
 async def get_latest_dynamic(bot: Bot, group_ids: list[int]) -> None:
-    # bot = get_bot()
-    # if not bot:
-    #     logger.warning("Bot 未启动，无法获取动态信息")
-    #     return
+    bot = get_bot()
 
     logger.info("正在查找 Shiro 的最新动态...")
 
@@ -334,18 +333,19 @@ async def get_latest_dynamic(bot: Bot, group_ids: list[int]) -> None:
         logger.warning("未找到有效动态。")
         return
 
-    push_ts_time = pub_ts_to_str(last_dynamic.get("modules", {})
-                              .get("module_author", {})
-                              .get("pub_ts", 0))
+    pub_ts = last_dynamic.get("modules", {}).get("module_author", {}).get("pub_ts", 0)
+    pub_ts_time = pub_ts_to_str(pub_ts)
+
+    global last_dynamic_timestamp
+    if last_dynamic_timestamp >= pub_ts:
+        logger.info("没有发现新的动态喵~")
+        return
+
+    last_dynamic_timestamp = pub_ts
 
     pub_time = last_dynamic.get("modules", {}).get("module_author", {}).get("pub_time", "")
 
-    logger.info(f"Shiro 的最新动态发布时间：{push_ts_time}")
-
-    # dynamic_message = DynamicParser(last_dynamic).parse()
-    # if not dynamic_message:
-    #     logger.warning("动态解析失败。")
-    #     return
+    logger.info(f"Shiro 的最新动态发布时间：{pub_ts_time}")
 
     dynamic_type = DynamicType.from_dynamic_type(last_dynamic.get("type", ""))
 
@@ -394,14 +394,4 @@ async def get_latest_dynamic(bot: Bot, group_ids: list[int]) -> None:
             for group_id in group_ids:
                 await bot.send_group_msg(group_id=group_id, message=Message("解析到不支持的动态了喵~"))
 
-
-test_common = on_command("test")
-@test_common.handle()
-async def _(bot):
-    if not plugin_config.live_shiro_group_ids:
-        logger.info("没有配置监听群列表，不查询Shiro的B站动态。")
-        await test_common.finish("没有配置监听群列表，不查询Shiro的B站动态。")
-    else:
-        await get_latest_dynamic(bot, plugin_config.live_shiro_group_ids)
-
-# scheduler.add_job(get_latest_dynamic, "interval", minutes=1, id="job_get_latest_dynamic")
+scheduler.add_job(get_latest_dynamic, "interval", minutes=1, id="job_get_latest_dynamic")
