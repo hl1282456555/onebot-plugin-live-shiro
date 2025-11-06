@@ -320,7 +320,7 @@ dynamic_content_processors = {
     MajorType.MAJOR_TYPE_UPOWER_COMMON: process_dynamic_upower_common
 }
 
-async def get_latest_dynamic(bot: Bot, group_ids: list[int]) -> None:
+async def get_latest_dynamic() -> None:
     bot = get_bot()
 
     logger.info("正在查找 Shiro 的最新动态...")
@@ -375,7 +375,7 @@ async def get_latest_dynamic(bot: Bot, group_ids: list[int]) -> None:
             logger.warning("解析text失败喵~")
             return
 
-        for group_id in group_ids:
+        for group_id in plugin_config.live_shiro_group_ids:
             await bot.send_group_msg(group_id=group_id, message=Message([
                     MessageSegment.text(f"Shiro 在 {pub_time} 转发了一条动态喵！\n"),
                     MessageSegment.text(text)
@@ -388,10 +388,10 @@ async def get_latest_dynamic(bot: Bot, group_ids: list[int]) -> None:
 
         major_type = MajorType[dynamic_content.get("type")]
         if major_type in dynamic_content_processors:
-            for group_id in group_ids:
+            for group_id in plugin_config.live_shiro_group_ids:
                 await dynamic_content_processors[major_type](bot, group_id, dynamic_content, pub_time)
         else:
-            for group_id in group_ids:
+            for group_id in plugin_config.live_shiro_group_ids:
                 await bot.send_group_msg(group_id=group_id, message=Message("解析到不支持的动态了喵~"))
 
 scheduler.add_job(get_latest_dynamic, "interval", minutes=1, id="job_get_latest_dynamic")
