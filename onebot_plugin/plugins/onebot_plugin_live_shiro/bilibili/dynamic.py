@@ -65,6 +65,9 @@ def pub_ts_to_str(pub_ts: int) -> str:
     """
     return datetime.fromtimestamp(pub_ts).strftime("%Y-%m-%d %H:%M:%S")  # noqa: DTZ006
 
+def process_jump_url(jump_url: str) -> str:
+    return "https:" + jump_url if jump_url.startswith("//") else jump_url
+
 async def process_dynamic_ugc_season(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
     major_ugc_season = major.get("ugc_season")
     if not major_ugc_season:
@@ -75,7 +78,7 @@ async def process_dynamic_ugc_season(bot:Bot, group_id: int, major: dict, pub_ti
         MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [剧集更新] 动态喵！\n"),
         MessageSegment.text(f'标题：{major_ugc_season.get("title", "无标题")}\n'),
         MessageSegment.text(f'简介：{major_ugc_season.get("desc", "无简介")}\n'),
-        MessageSegment.text(f'链接：{major_ugc_season.get("jump_url", "无链接")}\n'),
+        MessageSegment.text(f'链接：{process_jump_url(major_ugc_season.get("jump_url", "无链接"))}\n'),
     ])
 
     if cover_url := major_ugc_season.get("cover"):
@@ -93,7 +96,7 @@ async def process_dynamic_article(bot:Bot, group_id: int, major: dict, pub_time:
         MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [专栏] 动态喵！\n"),
         MessageSegment.text(f'标题：{major_article.get("title", "无标题")}\n'),
         MessageSegment.text(f'简介：{major_article.get("desc", "无简介")}\n'),
-        MessageSegment.text(f'链接：{major_article.get("jump_url", "无链接")}\n')
+        MessageSegment.text(f'链接：{process_jump_url(major_article.get("jump_url", "无链接"))}\n')
     ])
 
     for cover in major_article.get("covers", []):
@@ -139,7 +142,7 @@ async def process_dynamic_opus(bot:Bot, group_id: int, major: dict, pub_time: st
     else:
         combined_message.append(MessageSegment.text(f'简介：{summary.get("text", "无简介")}\n'))
 
-    combined_message.append(MessageSegment.text(f'链接：{major_opus.get("jump_url", "无链接")}\n'))
+    combined_message.append(MessageSegment.text(f'链接：{process_jump_url(major_opus.get("jump_url", "无链接"))}\n'))
     for image in major_opus.get("pics", []):
         if url := image.get("url"):
             combined_message.append(MessageSegment.image(url))
@@ -160,7 +163,7 @@ async def process_dynamic_live(bot:Bot, group_id: int, major: dict, pub_time: st
         start_message = Message([
             MessageSegment.text(f"各位请注意！Shiro {pub_time} 开始了直播喵！\n"),
             MessageSegment.text(f'标题：{major_live.get("title", "无标题")}\n'),
-            MessageSegment.text(f'链接：{major_live.get("jump_url", "无链接")}\n'),
+            MessageSegment.text(f'链接：{process_jump_url(major_live.get("jump_url", "无链接"))}\n'),
         ])
 
         if cover := major_live.get("cover"):
