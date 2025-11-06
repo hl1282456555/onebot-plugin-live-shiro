@@ -204,7 +204,7 @@ async def get_latest_dynamic(bot: Bot, group_ids: list[int]) -> None:
 
     logger.info("正在查找 Shiro 的最新动态...")
 
-    all_dynamics = await fetch_all_dynamics(342642068)
+    all_dynamics = await fetch_all_dynamics(plugin_config.live_shiro_uid)
     logger.info(f"共找到 {len(all_dynamics)} 条动态。")
 
     last_dynamic = get_last_dynamic(all_dynamics)
