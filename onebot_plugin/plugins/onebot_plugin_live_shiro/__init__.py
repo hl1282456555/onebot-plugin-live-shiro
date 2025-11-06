@@ -3,7 +3,6 @@ from nonebot import require
 require("nonebot_plugin_apscheduler")
 
 from bilibili_api import select_client
-from nonebot import get_plugin_config
 from nonebot.plugin import PluginMetadata
 
 from .config import Config
@@ -14,8 +13,6 @@ __plugin_meta__ = PluginMetadata(
     usage="",
     config=Config,
 )
-
-config = get_plugin_config(Config)
 
 select_client("httpx")
 
