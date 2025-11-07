@@ -320,7 +320,7 @@ dynamic_content_processors = {
     MajorType.MAJOR_TYPE_UPOWER_COMMON: process_dynamic_upower_common
 }
 
-async def get_latest_dynamic(bot: Bot) -> None:
+async def get_latest_dynamic() -> None:
     bot = get_bot()
 
     logger.info("正在查找 Shiro 的最新动态...")
