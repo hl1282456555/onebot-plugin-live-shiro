@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from io import BytesIO
 
 from bilibili_api import user
 from nonebot import get_bot, get_plugin_config, logger
@@ -12,6 +13,7 @@ from nonebot_plugin_apscheduler import scheduler
 
 from ..config import Config
 from .dynamic_type import DynamicType, MajorType
+from ..message_render import *
 
 plugin_config = get_plugin_config(Config)
 
@@ -104,205 +106,196 @@ def write_data_to_file_with_timestamp(subdir: str, base_name: str, data: str, ex
 def process_jump_url(jump_url: str) -> str:
     return "https:" + jump_url if jump_url.startswith("//") else jump_url
 
-async def process_dynamic_ugc_season(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
+async def process_dynamic_ugc_season(major: dict) -> dict:
     major_ugc_season = major.get("ugc_season")
     if not major_ugc_season:
-        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
-        return
+        return { "success": False }
 
-    combined_message = Message([
-        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [剧集更新] 动态喵！\n"),
-        MessageSegment.text(f'标题：{major_ugc_season.get("title", "无标题")}\n'),
-        MessageSegment.text(f'简介：{major_ugc_season.get("desc", "无简介")}\n'),
-        MessageSegment.text(f'链接：{process_jump_url(major_ugc_season.get("jump_url", "无链接"))}\n'),
-    ])
+    combined_message = {}
+    combined_message["success"] = True
+    combined_message["title"] = major_ugc_season.get("title", "无标题")
+    combined_message["link"] = process_jump_url(major_ugc_season.get("jump_url", "无链接"))
+    combined_message["content"] = major_ugc_season.get("desc", "无简介")
 
     if cover_url := major_ugc_season.get("cover"):
-        combined_message.append(MessageSegment.image(cover_url + "@300w_169h_.jpg"))
+        combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
 
-    await bot.send_group_msg(group_id=group_id, message=combined_message)
+    return combined_message
 
-async def process_dynamic_article(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
+async def process_dynamic_article(major: dict) -> dict:
     major_article = major.get("article")
     if not major_article:
-        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
-        return
+        return { "success": False }
 
-    combined_message = Message([
-        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [专栏] 动态喵！\n"),
-        MessageSegment.text(f'标题：{major_article.get("title", "无标题")}\n'),
-        MessageSegment.text(f'简介：{major_article.get("desc", "无简介")}\n'),
-        MessageSegment.text(f'链接：{process_jump_url(major_article.get("jump_url", "无链接"))}\n')
-    ])
+    combined_message = {}
+    combined_message["success"] = True
+    combined_message["title"] = major_article.get("title", "无标题")
+    combined_message["link"] = process_jump_url(major_article.get("jump_url", "无链接"))
+    combined_message["content"] = major_article.get("desc", "无简介")
 
     for cover in major_article.get("covers", []):
-        combined_message.append(MessageSegment.image(cover))
+        combined_message["image_urls"].append(cover)
 
-    await bot.send_group_msg(group_id=group_id, message=combined_message)
+    return combined_message
 
-async def process_dynamic_draw(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
+async def process_dynamic_draw(major: dict) -> dict:
     major_draw = major.get("draw")
     if not major_draw:
-        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
-        return
-    
-    combined_message = Message([
-        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [图片] 动态喵！\n"),
-        MessageSegment.text(f'相簿ID：{major_draw.get("id", "未知")}\n')
-    ])
+        return { "success": False }
+
+    combined_message = {}
+    combined_message["success"] = True
+    combined_message["title"] = "发布了一条 [图片] 动态喵！"
+    combined_message["content"] = f'相簿ID：{major_draw.get("id", "未知")}'
 
     for item in major_draw.get("items", []):
         if url := item.get("src"):
-            combined_message.append(MessageSegment.image(url))
-    
-    await bot.send_group_msg(group_id=group_id, message=combined_message)
+            combined_message["image_urls"].append(url)
 
-async def process_dynamic_archive(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
+    return combined_message
+
+async def process_dynamic_archive(major: dict) -> dict:
     major_archive = major.get("archive")
     if not major_archive:
-        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
-        return
-    
-    combined_message = Message([
-        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [视频] 动态喵！\n"),
-        MessageSegment.text(f'标题：{major_archive.get("title", "无标题")}\n'),
-        MessageSegment.text(f'简介：{major_archive.get("desc", "无简介")}\n'),
-        MessageSegment.text(f'链接：{process_jump_url(major_archive.get("jump_url", "无链接"))}\n')
-    ])
+        return { "success": False }
+
+    combined_message = {}
+    combined_message["success"] = True
+    combined_message["title"] = major_archive.get("title", "无标题")
+    combined_message["title"] = process_jump_url(major_archive.get("jump_url", "无链接"))
+    combined_message["content"] = major_archive.get("desc", "无简介")
 
     if cover_url := major_archive.get("cover"):
-        combined_message.append(MessageSegment.image(cover_url + "@300w_169h_.jpg"))
-    
-    await bot.send_group_msg(group_id=group_id, message=combined_message)
+        combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
 
-async def process_dynamic_live_rcmd(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    write_data_to_file_with_timestamp("dynamic_context", "live_rcmd", json.dumps(major, ensure_ascii=False), "json")
-    await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了直播推荐动态喵，已保存详细信息到文件。"))
+    return combined_message
 
-async def process_dynamic_common(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
+async def process_dynamic_live_rcmd(major: dict) -> dict:
+    major_rcmd = major.get("live_rcmd")
+    if not major_rcmd:
+        return { "success": False }
+
+    rcmd_content = major_rcmd.get("content", "")
+    if not rcmd_content:
+        return { "success": False }
+
+    content_json = json.loads(rcmd_content)
+    live_play_info = content_json.get("live_play_info")
+    if not live_play_info:
+        return { "success": False }
+
+    combined_message = {}
+    combined_message["success"] = True
+    combined_message["title"] = live_play_info.get("title", "无标题")
+    combined_message["link"] = process_jump_url(live_play_info.get("link", "无链接"))
+
+    if cover_url := live_play_info.get("cover"):
+        combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
+
+    return combined_message
+
+async def process_dynamic_common(major: dict) -> dict:
     major_common = major.get("common")
     if not major_common:
-        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
-        return
-    
-    combined_message = Message([
-        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [普通] 动态喵！\n"),
-        MessageSegment.text(f'标题：{major_common.get("title", "无标题")}\n'),
-        MessageSegment.text(f'简介：{major_common.get("desc", "无简介")}\n'),
-        MessageSegment.text(f'链接：{process_jump_url(major_common.get("jump_url", "无链接"))}\n')
-    ])
+        return { "success": False }
+
+    combined_message = {}
+    combined_message["success"] = True
+    combined_message["title"] = major_common.get("title", "无标题")
+    combined_message["content"] = major_common.get("desc", "无简介")
+    combined_message["link"] = process_jump_url(major_common.get("jump_url", "无链接"))
 
     if cover_url := major_common.get("cover"):
-        combined_message.append(MessageSegment.image(cover_url + "@300w_169h_.jpg"))
-    
-    await bot.send_group_msg(group_id=group_id, message=combined_message)
+        combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
 
-async def process_dynamic_pgc(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
+    return combined_message
+
+async def process_dynamic_pgc(major: dict) -> dict:
     major_pgc = major.get("pgc")
     if not major_pgc:
-        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
-        return
-    
-    sub_type = major_pgc.get("sub_type", 0)
-    sub_type_map = {
-        1: "番剧",
-        2: "电影",
-        3: "纪录片",
-        4: "国创",
-        5: "电视剧",
-        6: "漫画",
-        7: "综艺"
-    }
+        return { "success": False }
 
-    combined_message = Message([
-        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [剧集-{sub_type_map.get(sub_type, '未知类型')}] 动态喵！\n"),
-        MessageSegment.text(f'标题：{major_pgc.get("title", "无标题")}\n'),
-        MessageSegment.text(f'链接：{process_jump_url(major_pgc.get("jump_url", "无链接"))}\n')
-    ])
+    combined_message = {}
+    combined_message["success"] = True
+    combined_message["title"] = major_pgc.get("title", "无标题")
+    combined_message["link"] = process_jump_url(major_pgc.get("jump_url", "无链接"))
 
     if cover_url := major_pgc.get("cover"):
-        combined_message.append(MessageSegment.image(cover_url + "@300w_169h_.jpg"))
-    
-    await bot.send_group_msg(group_id=group_id, message=combined_message)
+        combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
 
-async def process_dynamic_courses(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了 [课程] 动态瞄~"))
+    return combined_message
 
-async def process_dynamic_music(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
+async def process_dynamic_courses(major: dict) -> dict:
+    return {  "success": False }
+
+async def process_dynamic_music(major: dict) -> dict:
     major_music = major.get("music")
     if not major_music:
-        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
-        return
-    
-    combined_message = Message([
-        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [音乐] 动态喵！\n"),
-        MessageSegment.text(f'标题：{major_music.get("title", "无标题")}\n'),
-        MessageSegment.text(f'分类：{major_music.get("label", "未知")}\n'),
-        MessageSegment.text(f'链接：{process_jump_url(major_music.get("jump_url", "无链接"))}\n')
-    ])
+        return { "success": False }
+
+    combined_message = {}
+    combined_message["success"] = True
+    combined_message["title"] = major_music.get("title", "无标题")
+    combined_message["content"] = major_music.get("label", "未知")
+    combined_message["link"] = process_jump_url(major_music.get("jump_url", "无链接"))
 
     if cover_url := major_music.get("cover"):
-        combined_message.append(MessageSegment.image(cover_url + "@300w_169h_.jpg"))
+        combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
 
-    await bot.send_group_msg(group_id=group_id, message=combined_message)
+    return combined_message
 
-async def process_dynamic_opus(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
+async def process_dynamic_opus(major: dict) -> dict:
     major_opus = major.get("opus")
     if not major_opus:
-        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
-        return
+        return { "success": False }
 
-    combined_message = Message([
-        MessageSegment.text(f"各位请注意！Shiro 在 {pub_time} 发布了一条 [图文] 动态喵！\n"),
-        MessageSegment.text(f'标题：{major_opus.get("title", "无标题")}\n')
-    ])
+    combined_message = {}
+    combined_message["success"] = True
+    combined_message["title"] = major_opus.get("title", "无标题")
 
     summary = major_opus.get("summary")
     if not summary:
-        combined_message.append(MessageSegment.text("简介：无简介\n"))
+        combined_message["content"] = "无简介"
     else:
-        combined_message.append(MessageSegment.text(f'简介：{summary.get("text", "无简介")}\n'))
+        combined_message["content"] = {summary.get("text", "无简介")}
 
-    combined_message.append(MessageSegment.text(f'链接：{process_jump_url(major_opus.get("jump_url", "无链接"))}\n'))
+    combined_message["link"] = process_jump_url(major_opus.get("jump_url", "无链接"))
+
     for image in major_opus.get("pics", []):
         if url := image.get("url"):
-            combined_message.append(MessageSegment.image(url))
+            combined_message["image_urls"].append(url)
 
-    await bot.send_group_msg(group_id=group_id, message=combined_message)
+    return combined_message
 
-async def process_dynamic_live(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
+async def process_dynamic_live(major: dict) -> dict:
     major_live = major.get("live")
     if not major_live:
-        await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布了动态，但是解析失败喵~"))
-        return
+        return { "success": False }
 
     live_state = major_live.get("live_state")
     if not live_state:
-        await bot.send_group_msg(group_id=group_id, message=Message("获取到了直播状态，但是解析失败了瞄~"))
+        return { "success": False }
+
+    combined_message = {}
+    combined_message["success"] = True
 
     if live_state == 1:
-        start_message = Message([
-            MessageSegment.text(f"各位请注意！Shiro {pub_time} 开始了直播喵！\n"),
-            MessageSegment.text(f'标题：{major_live.get("title", "无标题")}\n'),
-            MessageSegment.text(f'链接：{process_jump_url(major_live.get("jump_url", "无链接"))}\n'),
-        ])
+        combined_message["title"] = major_live.get("title", "无标题")
+        combined_message["link"] = process_jump_url(major_live.get("jump_url", "无链接"))
+        combined_message["content"] = "各位请注意！Shiro开始了直播喵！"
 
         if cover := major_live.get("cover"):
-            start_message.append(MessageSegment.image(cover + "@300w_169h_.jpg"))
-        await bot.send_group_msg(group_id=group_id, message=start_message)
+            combined_message["image_urls"].append(cover + "@300w_169h_.jpg")
     elif live_state == 0:
-        end_message = Message([
-            MessageSegment.text(f"各位请注意！Shiro {pub_time} 结束了直播喵！\n"),
-            MessageSegment.text("期待下次再见喵~\n"),
-        ])
+        combined_message["content"] = "各位请注意！Shiro 结束了直播喵！\n期待下次再见喵~"
 
-        await bot.send_group_msg(group_id=group_id, message=end_message)
+    return combined_message
 
-async def process_dynamic_none(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    await bot.send_group_msg(group_id=group_id, message=Message(f"Shiro {pub_time} 发布的动态失效了喵~"))
+async def process_dynamic_none(major: dict) -> dict:
+    return { "success": False }
 
-async def process_dynamic_upower_common(bot:Bot, group_id: int, major: dict, pub_time: str) -> None:
-    pass
+async def process_dynamic_upower_common(major: dict) -> dict:
+    return { "success": False }
 
 dynamic_content_processors = {
     MajorType.MAJOR_TYPE_NONE: process_dynamic_none,
@@ -359,6 +352,11 @@ async def get_latest_dynamic() -> None:
         logger.warning("解析modules失败喵~")
         return
 
+    module_author = modules.get("module_author")
+    if not module_author:
+        logger.warning("解析module_author失败喵~")
+        return
+
     module_dynamic = modules.get("module_dynamic")
     if not module_dynamic:
         logger.warning("解析module_dynamic失败喵~")
@@ -386,13 +384,40 @@ async def get_latest_dynamic() -> None:
             logger.warning("解析major失败喵")
             return
 
+        combined_message = {}
+
         major_type = MajorType[dynamic_content.get("type")]
         if major_type in dynamic_content_processors:
-            for group_id in plugin_config.live_shiro_group_ids:
-                await dynamic_content_processors[major_type](bot, group_id, dynamic_content, pub_time)
+            combined_message = await dynamic_content_processors[major_type](dynamic_content)
         else:
             for group_id in plugin_config.live_shiro_group_ids:
                 await bot.send_group_msg(group_id=group_id, message=Message("解析到不支持的动态了喵~"))
+                return
+
+        success = combined_message["success"]
+        if not success:
+            return
+        
+        combined_message["time"] = pub_time
+        combined_message["user_name"] = module_author.get("name", "未知用户")
+        combined_message["avatar_url"] = module_author.get("face", "")
+
+        image_data = await render_png_from_template(RenderPageType.NORMAL, combined_message, 400)
+        for group_id in plugin_config.live_shiro_group_ids:
+            await bot.send_group_msg(group_id=group_id, message=Message([MessageSegment.image(BytesIO(image_data))]))
+
+
+from nonebot import on_command
+from nonebot.rule import to_me
+
+test_command = on_command("test_dynamic", rule=to_me())
+@test_command.handle()
+async def test_dynamic_handler() -> None:
+    global last_dynamic_timestamp
+    pre_last_time = last_dynamic_timestamp
+    last_dynamic_timestamp = 0
+    await get_latest_dynamic()
+    last_dynamic_timestamp = pre_last_time
 
 async def dynamic_bot_connect_handler(bot: Bot) -> Optional[Message]:
     scheduler.add_job(get_latest_dynamic, "interval", minutes=1, id="job_get_latest_dynamic")
