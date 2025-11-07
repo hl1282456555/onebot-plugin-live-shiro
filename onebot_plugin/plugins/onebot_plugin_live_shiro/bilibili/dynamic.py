@@ -397,7 +397,7 @@ async def get_latest_dynamic(bot: Bot) -> None:
 bot_driver = get_driver()
 
 @bot_driver.on_bot_connect
-async def _(bot: Bot):
+async def dynamic_handle_bot_connect(bot: Bot):
     if plugin_config.live_shiro_group_ids:
         scheduler.add_job(get_latest_dynamic, "interval", minutes=1, id="job_get_latest_dynamic")
         for group_id in plugin_config.live_shiro_group_ids:

@@ -26,7 +26,7 @@ async def shiro_sleep_clock():
 bot_driver = get_driver()
 
 @bot_driver.on_bot_connect
-async def _(bot: Bot):
+async def alive_handle_bot_connect(bot: Bot):
     if plugin_config.live_shiro_group_ids:
         for group_id in plugin_config.live_shiro_group_ids:
             await bot.send_group_msg(group_id=group_id, message=Message(f"小助手已经安全启动，今天又是美好的一天瞄~"))
