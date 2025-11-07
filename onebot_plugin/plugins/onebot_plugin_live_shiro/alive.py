@@ -1,4 +1,4 @@
-from nonebot import get_bot, get_driver, get_plugin_config, on_keyword
+from nonebot import get_bot, get_plugin_config, on_keyword
 from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from nonebot.rule import to_me
@@ -23,10 +23,7 @@ async def shiro_sleep_clock():
             MessageSegment.text("老大，睡觉时间到了喵，早点休息喵~")
         ]))
 
-bot_driver = get_driver()
-
-@bot_driver.on_bot_connect
-async def alive_handle_bot_connect(bot: Bot):
+async def alive_bot_connect_handler(bot: Bot) -> None:
     if plugin_config.live_shiro_group_ids:
         for group_id in plugin_config.live_shiro_group_ids:
             await bot.send_group_msg(group_id=group_id, message=Message(f"小助手已经安全启动，今天又是美好的一天瞄~"))
@@ -38,4 +35,4 @@ async def alive_handle_bot_connect(bot: Bot):
                       id="job_shiro_sleep_clock")
 
 
-__all__ = ["alive_command"]
+__all__ = ["alive_bot_connect_handler", "alive_command"]

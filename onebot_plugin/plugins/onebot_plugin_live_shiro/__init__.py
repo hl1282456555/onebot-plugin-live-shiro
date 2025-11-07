@@ -16,7 +16,13 @@ __plugin_meta__ = PluginMetadata(
 
 select_client("httpx")
 
-from . import alive
-from . import bible
-from . import common
-from . import bilibili
+from nonebot import get_driver
+from nonebot.adapters import Bot
+
+from . import alive, bible, bilibili, common
+
+driver = get_driver()
+@driver.on_bot_connect
+async def union_bot_connect_handler(bot: Bot) -> None:
+    await alive.alive_bot_connect_handler(bot)
+    await bilibili.bilibili_bot_connect_handler(bot)
