@@ -25,11 +25,23 @@ async def get_browser() -> Browser:
 
 
 async def close_browser():
-    """关闭浏览器"""
+    """安全关闭浏览器"""
     global _playwright, _browser
+    # 尝试关闭浏览器实例
     if _browser:
-        await _browser.close()
-        _browser = None
+        try:
+            await _browser.close()
+        except Exception as e:
+            # 浏览器已关闭或通信管道断开，打印警告即可
+            print(f"Warning: browser close failed: {e}")
+        finally:
+            _browser = None
+
+    # 尝试停止 playwright
     if _playwright:
-        await _playwright.stop()
-        _playwright = None
+        try:
+            await _playwright.stop()
+        except Exception as e:
+            print(f"Warning: playwright stop failed: {e}")
+        finally:
+            _playwright = None
