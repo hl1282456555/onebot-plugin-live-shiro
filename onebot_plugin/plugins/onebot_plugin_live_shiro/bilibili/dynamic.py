@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from bilibili_api import user
-from nonebot import get_bot, get_plugin_config, logger
+from nonebot import get_bot, get_driver, get_plugin_config, logger
 from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from nonebot_plugin_apscheduler import scheduler
@@ -320,7 +320,7 @@ dynamic_content_processors = {
     MajorType.MAJOR_TYPE_UPOWER_COMMON: process_dynamic_upower_common
 }
 
-async def get_latest_dynamic() -> None:
+async def get_latest_dynamic(bot: Bot) -> None:
     bot = get_bot()
 
     logger.info("正在查找 Shiro 的最新动态...")
@@ -394,4 +394,13 @@ async def get_latest_dynamic() -> None:
             for group_id in plugin_config.live_shiro_group_ids:
                 await bot.send_group_msg(group_id=group_id, message=Message("解析到不支持的动态了喵~"))
 
-scheduler.add_job(get_latest_dynamic, "interval", minutes=1, id="job_get_latest_dynamic")
+bot_driver = get_driver()
+
+@bot_driver.on_bot_connect
+async def _(bot: Bot):
+    if plugin_config.live_shiro_group_ids:
+        scheduler.add_job(get_latest_dynamic, "interval", minutes=1, id="job_get_latest_dynamic")
+        for group_id in plugin_config.live_shiro_group_ids:
+            await bot.send_group_msg(group_id=group_id, message=Message(f"小助手开始监控 Shiro 的动态喵~"))
+    else:
+        logger.info("没有配置 live_shiro_group_ids，跳过动态监控任务的启动。")
