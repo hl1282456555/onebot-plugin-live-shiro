@@ -1,47 +1,60 @@
-from playwright.async_api import async_playwright, Browser
+import asyncio
+from playwright.async_api import async_playwright, Browser, Playwright
 
-_playwright = None
-_browser: Browser | None = None
+class BrowserManager:
+    """异步安全的单例浏览器管理器"""
+    
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._playwright: Playwright | None = None
+            cls._instance._browser: Browser | None = None
+            cls._instance._lock = asyncio.Lock()
+        return cls._instance
+
+    async def init_browser(self) -> Browser:
+        """初始化浏览器(只执行一次)"""
+        async with self._lock:
+            if self._browser:
+                return self._browser
+            self._playwright = await async_playwright().start()
+            self._browser = await self._playwright.chromium.launch(
+                headless=True,
+                args=['--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage']
+            )
+            return self._browser
+
+    async def get_browser(self) -> Browser:
+        """获取浏览器实例"""
+        if self._browser is None:
+            return await self.init_browser()
+        return self._browser
+
+    async def close_browser(self):
+        """安全关闭浏览器"""
+        async with self._lock:
+            if self._browser:
+                try:
+                    await self._browser.close()
+                except Exception as e:
+                    print(f"Warning: browser close failed: {e}")
+                finally:
+                    self._browser = None
+
+            if self._playwright:
+                try:
+                    await self._playwright.stop()
+                except Exception as e:
+                    print(f"Warning: playwright stop failed: {e}")
+                finally:
+                    self._playwright = None
 
 
-async def init_browser() -> Browser:
-    """初始化浏览器(Only once)"""
-    global _playwright, _browser
-    if _browser:
-        return _browser
+# 全局单例
+browser_manager = BrowserManager()
 
-    _playwright = await async_playwright().start()
-    _browser = await _playwright.chromium.launch(
-        headless=True,
-        args=['--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage']
-    )
-    return _browser
-
-
-async def get_browser() -> Browser:
-    if _browser is None:
-        return await init_browser()
-    return _browser
-
-
-async def close_browser():
-    """安全关闭浏览器"""
-    global _playwright, _browser
-    # 尝试关闭浏览器实例
-    if _browser:
-        try:
-            await _browser.close()
-        except Exception as e:
-            # 浏览器已关闭或通信管道断开，打印警告即可
-            print(f"Warning: browser close failed: {e}")
-        finally:
-            _browser = None
-
-    # 尝试停止 playwright
-    if _playwright:
-        try:
-            await _playwright.stop()
-        except Exception as e:
-            print(f"Warning: playwright stop failed: {e}")
-        finally:
-            _playwright = None
+# 使用示例
+# await browser_manager.get_browser()
+# await browser_manager.close_browser()

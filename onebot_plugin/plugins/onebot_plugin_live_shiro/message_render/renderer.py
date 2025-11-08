@@ -5,7 +5,7 @@ from typing import Optional, TypedDict
 
 from jinja2 import Environment, FileSystemLoader
 from PIL import Image
-from .browser import get_browser
+from .browser import browser_manager  # 修改为单例管理器
 
 current_dir = Path(__file__).resolve().parent
 env = Environment(loader=FileSystemLoader(current_dir / "templates"))
@@ -56,7 +56,8 @@ def crop_transparent_edges(img: Image.Image, border: int = 10) -> Image.Image:
 
 async def _render_png_from_html(html_str: str, width: int = 800) -> bytes:
     """渲染 HTML → PNG 截图"""
-    browser = await get_browser()
+    # 使用单例管理器安全获取浏览器
+    browser = await browser_manager.get_browser()
     page = await browser.new_page(
         viewport={"width": width, "height": 2000},
         device_scale_factor=2,
@@ -89,6 +90,14 @@ async def _render_png_from_html(html_str: str, width: int = 800) -> bytes:
 
 async def render_png_from_template(render_type: RenderPageType, data: dict, width: int = 800) -> bytes:
     """从模板数据生成 PNG"""
+    # 保证 content 是字符串，替换换行符 \n
+    data["content"] = data.get("content", "") or ""
+    # 保留换行符
+    data["content"] = data["content"].replace("\r\n", "\n").replace("\r", "\n")
+
+    # 过滤空图片链接
+    data["image_urls"] = [url for url in data.get("image_urls", []) if url]
+
     template = env.get_template(render_type.value)
     html_str = template.render(data)
     return await _render_png_from_html(html_str, width)

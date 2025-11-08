@@ -6,7 +6,7 @@
 <style>
 html, body {
     margin: 0; padding: 0; background: transparent;
-    font-family: "Arial", sans-serif;
+    font-family: "HarmonyOS Sans SC", "Noto Sans CJK SC", sans-serif;
 }
 .content-wrapper {
     display: inline-block;
@@ -32,7 +32,10 @@ html, body {
 .link {
     font-size: 12px; color: #1E90FF; text-decoration: underline; margin-bottom: 8px;
 }
-.content { font-size: 14px; line-height: 1.5; margin-bottom: 8px; word-break: break-word; }
+.content {
+    font-size: 14px; line-height: 1.5; margin-bottom: 8px; word-break: break-word;
+    white-space: pre-wrap; /* 保留换行符 */
+}
 .image { width: 100%; height: auto; border-radius: 16px; margin-top: 8px; margin-bottom: 8px; display: block; }
 </style>
 </head>
@@ -48,9 +51,13 @@ html, body {
     <div class="title">{{ title }}</div>
     <div class="link">{{ link }}</div>
     <div class="content">{{ content }}</div>
-    {% for img_url in image_urls %}
-    <img src="{{ img_url }}" class="image"/>
-    {% endfor %}
+    {% if image_urls %}
+        {% for img_url in image_urls %}
+            {% if img_url %}
+                <img src="{{ img_url }}" class="image"/>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
 </div>
 </body>
 </html>

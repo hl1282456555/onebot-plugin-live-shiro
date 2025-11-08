@@ -257,7 +257,7 @@ async def process_dynamic_opus(major: dict) -> dict:
     if not summary:
         combined_message["content"] = "无简介"
     else:
-        combined_message["content"] = {summary.get("text", "无简介")}
+        combined_message["content"] = summary.get("text", "无简介")
 
     combined_message["link"] = process_jump_url(major_opus.get("jump_url", "无链接"))
 

@@ -42,5 +42,5 @@ async def union_bot_connect_handler(bot: Bot) -> None:
     if bilibili_message := await bilibili.bilibili_bot_connect_handler(bot):
         message += Message("\n") + bilibili_message
 
-    # for group_id in plugin_config.live_shiro_group_ids:
-    #     await bot.send_group_msg(group_id=group_id, message=message)
+    for group_id in plugin_config.live_shiro_group_ids:
+        await bot.send_group_msg(group_id=group_id, message=message)
