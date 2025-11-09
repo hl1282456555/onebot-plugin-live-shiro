@@ -20,7 +20,7 @@ from nonebot import get_driver, get_plugin_config, logger
 from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 
-from . import alive, bible, bilibili, common
+from . import alive, bible, bilibili, common, vote
 
 plugin_config = get_plugin_config(Config)
 
