@@ -19,12 +19,12 @@ plugin_config = get_plugin_config(Config)
 
 last_dynamic_timestamp: int = int(time.time())
 
-async def fetch_all_dynamics(uid: int) -> list[dict]:
+bili_user = user.User(plugin_config.live_shiro_uid)
+
+async def fetch_all_dynamics() -> list[dict]:
     """
     查询指定uid用户的所有动态
     """
-
-    bili_user = user.User(uid)
 
     next_offset = ""
     dynamics = []
@@ -116,6 +116,7 @@ async def process_dynamic_ugc_season(major: dict) -> dict:
     combined_message["title"] = major_ugc_season.get("title", "无标题")
     combined_message["link"] = process_jump_url(major_ugc_season.get("jump_url", "无链接"))
     combined_message["content"] = major_ugc_season.get("desc", "无简介")
+    combined_message["image_urls"] = []
 
     if cover_url := major_ugc_season.get("cover"):
         combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
@@ -132,6 +133,7 @@ async def process_dynamic_article(major: dict) -> dict:
     combined_message["title"] = major_article.get("title", "无标题")
     combined_message["link"] = process_jump_url(major_article.get("jump_url", "无链接"))
     combined_message["content"] = major_article.get("desc", "无简介")
+    combined_message["image_urls"] = []
 
     for cover in major_article.get("covers", []):
         combined_message["image_urls"].append(cover)
@@ -147,6 +149,7 @@ async def process_dynamic_draw(major: dict) -> dict:
     combined_message["success"] = True
     combined_message["title"] = "发布了一条 [图片] 动态喵！"
     combined_message["content"] = f'相簿ID：{major_draw.get("id", "未知")}'
+    combined_message["image_urls"] = []
 
     for item in major_draw.get("items", []):
         if url := item.get("src"):
@@ -164,6 +167,7 @@ async def process_dynamic_archive(major: dict) -> dict:
     combined_message["title"] = major_archive.get("title", "无标题")
     combined_message["title"] = process_jump_url(major_archive.get("jump_url", "无链接"))
     combined_message["content"] = major_archive.get("desc", "无简介")
+    combined_message["image_urls"] = []
 
     if cover_url := major_archive.get("cover"):
         combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
@@ -188,6 +192,7 @@ async def process_dynamic_live_rcmd(major: dict) -> dict:
     combined_message["success"] = True
     combined_message["title"] = live_play_info.get("title", "无标题")
     combined_message["link"] = process_jump_url(live_play_info.get("link", "无链接"))
+    combined_message["image_urls"] = []
 
     if cover_url := live_play_info.get("cover"):
         combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
@@ -204,6 +209,7 @@ async def process_dynamic_common(major: dict) -> dict:
     combined_message["title"] = major_common.get("title", "无标题")
     combined_message["content"] = major_common.get("desc", "无简介")
     combined_message["link"] = process_jump_url(major_common.get("jump_url", "无链接"))
+    combined_message["image_urls"] = []
 
     if cover_url := major_common.get("cover"):
         combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
@@ -219,6 +225,7 @@ async def process_dynamic_pgc(major: dict) -> dict:
     combined_message["success"] = True
     combined_message["title"] = major_pgc.get("title", "无标题")
     combined_message["link"] = process_jump_url(major_pgc.get("jump_url", "无链接"))
+    combined_message["image_urls"] = []
 
     if cover_url := major_pgc.get("cover"):
         combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
@@ -238,6 +245,7 @@ async def process_dynamic_music(major: dict) -> dict:
     combined_message["title"] = major_music.get("title", "无标题")
     combined_message["content"] = major_music.get("label", "未知")
     combined_message["link"] = process_jump_url(major_music.get("jump_url", "无链接"))
+    combined_message["image_urls"] = []
 
     if cover_url := major_music.get("cover"):
         combined_message["image_urls"].append(cover_url + "@300w_169h_.jpg")
@@ -252,6 +260,7 @@ async def process_dynamic_opus(major: dict) -> dict:
     combined_message = {}
     combined_message["success"] = True
     combined_message["title"] = major_opus.get("title", "无标题")
+    combined_message["image_urls"] = []
 
     summary = major_opus.get("summary")
     if not summary:
@@ -283,6 +292,7 @@ async def process_dynamic_live(major: dict) -> dict:
         combined_message["title"] = major_live.get("title", "无标题")
         combined_message["link"] = process_jump_url(major_live.get("jump_url", "无链接"))
         combined_message["content"] = "各位请注意！Shiro开始了直播喵！"
+        combined_message["image_urls"] = []
 
         if cover := major_live.get("cover"):
             combined_message["image_urls"].append(cover + "@300w_169h_.jpg")
@@ -318,7 +328,7 @@ async def get_latest_dynamic() -> None:
 
     logger.info("正在查找 Shiro 的最新动态...")
 
-    all_dynamics = await fetch_all_dynamics(plugin_config.live_shiro_uid)
+    all_dynamics = await fetch_all_dynamics()
     logger.info(f"共找到 {len(all_dynamics)} 条动态。")
 
     last_dynamic = get_last_dynamic(all_dynamics)
@@ -397,7 +407,7 @@ async def get_latest_dynamic() -> None:
         success = combined_message["success"]
         if not success:
             return
-        
+
         combined_message["time"] = pub_time
         combined_message["user_name"] = module_author.get("name", "未知用户")
         combined_message["avatar_url"] = module_author.get("face", "")
@@ -420,7 +430,7 @@ async def test_dynamic_handler() -> None:
     last_dynamic_timestamp = pre_last_time
 
 async def dynamic_bot_connect_handler(bot: Bot) -> Optional[Message]:
-    scheduler.add_job(get_latest_dynamic, "interval", minutes=1, id="job_get_latest_dynamic")
+    scheduler.add_job(get_latest_dynamic, "interval", minutes=2, id="job_get_latest_dynamic")
     return Message("开始监控 Shiro 的动态喵~")
 
 __all__ = ["dynamic_bot_connect_handler"]
