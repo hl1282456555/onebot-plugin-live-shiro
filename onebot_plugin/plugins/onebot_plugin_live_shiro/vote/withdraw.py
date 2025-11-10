@@ -10,6 +10,8 @@ from nonebot.matcher import Matcher
 
 from nonebot_plugin_apscheduler import scheduler
 
+from common import *
+
 DB_PATH = "./cache/vote.db"
 
 async def vote_exists(message_id: int) -> bool:
@@ -21,12 +23,65 @@ async def vote_exists(message_id: int) -> bool:
     :return: 如果存在返回 True，否则返回 False
     """
     query_str = f"SELECT 1 FROM vote_withdraw WHERE referenced_message_id = ? LIMIT 1"
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with get_db_connection(DB_PATH) as db:
         cursor = await db.execute(query_str, (message_id,))
         row = await cursor.fetchone()
         await cursor.close()
 
     return row is not None
+
+async def has_user_voted(vote_id: int, user_id: int) -> bool:
+    """
+    检查指定用户是否已经对某条投票投票
+
+    :param vote_id: vote_withdraw.id
+    :param user_id: 用户ID
+    :return: True = 已投票，False = 未投票
+    """
+    async with get_db_connection(DB_PATH) as db, db.execute(
+        "SELECT 1 FROM vote_withdraw_user_record WHERE vote_id = ? AND user_id = ? LIMIT 1",
+        (vote_id, user_id)
+    ) as cursor:
+        row = await cursor.fetchone()
+        return row is not None
+
+async def insert_user_vote(vote_id: int, user_id: int, choice: str) -> dict:
+    """
+    插入用户投票记录到 vote_withdraw_user_record
+    返回统一字典形式：
+    {
+        "success": True/False,
+        "data": 投票信息或 None,
+        "error": 错误信息或 None,
+        "status": "success" / "already_voted" / "invalid_choice" / "db_error"
+    }
+    """
+    if choice not in ("agree", "oppose", "abstain"):
+        return {"success": False, "data": None, "error": "invalid_choice", "status": "invalid_choice"}
+
+    async with get_db_connection() as db:
+        try:
+            # 插入用户投票记录
+            await db.execute(
+                "INSERT INTO vote_withdraw_user_record (vote_id, user_id, choice) VALUES (?, ?, ?)",
+                (vote_id, user_id, choice)
+            )
+
+            await db.commit()
+            return {
+                "success": True,
+                "data": {"vote_id": vote_id, "user_id": user_id, "choice": choice},
+                "error": None,
+                "status": "success"
+            }
+
+        except aiosqlite.IntegrityError as e:
+            if "UNIQUE" in str(e):
+                return {"success": False, "data": None, "error": "already_voted", "status": "already_voted"}
+            return {"success": False, "data": None, "error": str(e), "status": "db_error"}
+
+        except Exception as e:
+            return {"success": False, "data": None, "error": str(e), "status": "db_error"}
 
 async def create_record(
         referenced_message_id: int,
@@ -48,7 +103,7 @@ async def create_record(
     """
 
     try:
-        async with aiosqlite.connect(DB_PATH) as db:
+        async with get_db_connection(DB_PATH) as db:
             cursor = await db.execute(
                 sql,
                 (
@@ -83,7 +138,7 @@ async def update_record(
     sql = f"UPDATE vote_withdraw SET {set_clause} WHERE id = ?"
 
     try:
-        async with aiosqlite.connect(DB_PATH) as db:
+        async with get_db_connection(DB_PATH) as db:
             cursor = await db.execute(sql, values)
             await db.commit()
             count = cursor.rowcount
@@ -104,7 +159,7 @@ async def delete_record(
     sql = "DELETE FROM vote_withdraw WHERE id = ?"
 
     try:
-        async with aiosqlite.connect(DB_PATH) as db:
+        async with get_db_connection(DB_PATH) as db:
             cursor = await db.execute(sql, (record_id,))
             await db.commit()
             count = cursor.rowcount
@@ -134,7 +189,7 @@ async def get_record_by_id(record_id: int) -> dict[str, Any]:
     """
 
     try:
-        async with aiosqlite.connect(DB_PATH) as db:
+        async with get_db_connection(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(sql, (record_id,))
             row = await cursor.fetchone()
@@ -192,7 +247,7 @@ async def process_vote_withdraw_command(event: GroupMessageEvent):
 
         await vote_command.finish(Message([
             MessageSegment.reply(event.reply.message_id),
-            MessageSegment.text(f"{event.sender.nickname} 发起了撤回对这条消息的投票。\n"),
+            MessageSegment.text(f"{event.sender.nickname} 发起了撤回这条消息的投票。\n"),
             MessageSegment.text(f'投票ID为 {create_result["data"]}。\n'),
             MessageSegment.text("请使用以下命令进行投票：\n"),
             MessageSegment.text(f'/agree {create_result["data"]} - 同意撤回\n'),
@@ -230,6 +285,24 @@ async def process_memeber_vote_withdraw(
     if passed_time >= timedelta(minutes=1):
         await command.finish(f"投票 [{record_id}] 已经过期了瞄~")
 
+    insert_user_result = await insert_user_vote(record_id, event.user_id, vote_type)
+    if insert_user_result["status"] != "success":
+        if insert_user_result["status"] == "already_voted":
+            await command.finish(Message([
+                MessageSegment.reply(event.message_id),
+                MessageSegment.text("一个人只能投一次票喵~")
+            ]))
+        elif insert_user_result["status"] == "invalid_choice":
+            await command.finish(Message([
+                MessageSegment.reply(event.message_id),
+                MessageSegment.text("投票选项错了喵~")
+            ]))
+        else:
+            await command.finish(Message([
+                MessageSegment.reply(event.message_id),
+                MessageSegment.text(f'数据库出错了，请联系管理员：{insert_user_result["error"]}')
+            ]))
+
     new_count = query_result["data"]["oppose_count"] + 1
     update_result = await update_record(int(record_id), oppose_count=new_count)
     if not update_result["success"]:
@@ -241,35 +314,60 @@ async def process_memeber_vote_withdraw(
 
     await command.finish(Message([
         MessageSegment.reply(event.message_id),
-        MessageSegment.text(f"已为 {record_id} 成功投下一票{vote_type}瞄~")
+        MessageSegment.text(f"成功投下一票 {vote_type} 喵~")
     ]))
+
+def try_parse_int(text: str):
+    try:
+        return int(text)
+    except ValueError:
+        return None
 
 agree_withdraw_command = on_command("agree")
 @agree_withdraw_command.handle()
-async def handle_agree_withdraw(event: GroupMessageEvent, args: Message = CommandArg()): 
-    await process_memeber_vote_withdraw(
-        agree_withdraw_command,
-        event,
-        int(args.extract_plain_text().strip()),
-        "同意"
-    )
+async def handle_agree_withdraw(event: GroupMessageEvent, args: Message = CommandArg()):
+    if record_id := try_parse_int(args.extract_plain_text().strip()):
+        await process_memeber_vote_withdraw(
+            agree_withdraw_command,
+            event,
+            record_id,
+            "agree"
+        )
+    else:
+        await agree_withdraw_command.finish(Message([
+            MessageSegment.reply(event.message_id),
+            MessageSegment.text("请输入正确的命令内容，不要像狗哥一样乱来喵~")
+        ]))
 
 oppose_withdraw_command = on_command("oppose")
 @oppose_withdraw_command.handle()
 async def handle_oppose_withdraw(event: GroupMessageEvent, args: Message = CommandArg()):
-    await process_memeber_vote_withdraw(
-        oppose_withdraw_command,
-        event,
-        int(args.extract_plain_text().strip()),
-        "反对"
-    )
+    if record_id := try_parse_int(args.extract_plain_text().strip()):
+        await process_memeber_vote_withdraw(
+            oppose_withdraw_command,
+            event,
+            record_id,
+            "oppose"
+        )
+    else:
+        await agree_withdraw_command.finish(Message([
+            MessageSegment.reply(event.message_id),
+            MessageSegment.text("请输入正确的命令内容，不要像狗哥一样乱来喵~")
+        ]))
+
 
 abstain_withdraw_command = on_command("abstain")
 @abstain_withdraw_command.handle()
 async def handle_abstain_withdraw(event: GroupMessageEvent, args: Message = CommandArg()):
-    await process_memeber_vote_withdraw(
-        abstain_withdraw_command,
-        event,
-        int(args.extract_plain_text().strip()),
-        "弃权"
-    )
+    if record_id := try_parse_int(args.extract_plain_text().strip()):
+        await process_memeber_vote_withdraw(
+            abstain_withdraw_command,
+            event,
+            record_id,
+            "abstain"
+        )
+    else:
+        await agree_withdraw_command.finish(Message([
+            MessageSegment.reply(event.message_id),
+            MessageSegment.text("请输入正确的命令内容，不要像狗哥一样乱来喵~")
+        ]))
