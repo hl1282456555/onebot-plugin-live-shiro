@@ -4,7 +4,7 @@ from typing import Any
 from datetime import datetime, timedelta
 import pytz
 
-from nonebot import on_command, get_bot, logger
+from nonebot import on_command, on_startswith, get_bot, get_plugin_config, logger
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageSegment
 from nonebot.params import CommandArg
 from nonebot.matcher import Matcher
@@ -12,8 +12,11 @@ from nonebot.matcher import Matcher
 from nonebot_plugin_apscheduler import scheduler
 
 from .common import *
+from ..config import Config
 
 DB_PATH = "./cache/vote.db"
+
+plugin_config = get_plugin_config(Config)
 
 time_zone = pytz.timezone("Asia/ShangHai")
 
@@ -383,3 +386,18 @@ async def handle_abstain_withdraw(event: GroupMessageEvent, args: Message = Comm
             MessageSegment.reply(event.message_id),
             MessageSegment.text("请输入正确的命令内容，不要像狗哥一样乱来喵~")
         ]))
+
+async def process_dog_prefix_message(message_id):
+    bot = get_bot()
+
+    await bot.delete_msg(message_id=message_id)
+
+dog_prefix_message = on_startswith("dog_prefix")
+@dog_prefix_message.handle()
+async def handle_dog_prefix_message(event: GroupMessageEvent):
+    scheduler.add_job(
+        process_dog_prefix_message,
+        "date",
+        run_date=datetime.now(time_zone) + timedelta(seconds=5),
+        kwargs={"message_id": event.message_id}
+    )
