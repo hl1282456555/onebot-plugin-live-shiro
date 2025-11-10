@@ -59,7 +59,7 @@ async def insert_user_vote(vote_id: int, user_id: int, choice: str) -> dict:
     if choice not in ("agree", "oppose", "abstain"):
         return {"success": False, "data": None, "error": "invalid_choice", "status": "invalid_choice"}
 
-    async with get_db_connection() as db:
+    async with get_db_connection(DB_PATH) as db:
         try:
             # 插入用户投票记录
             await db.execute(
