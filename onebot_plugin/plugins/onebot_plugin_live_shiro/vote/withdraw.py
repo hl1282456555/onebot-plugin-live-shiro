@@ -214,14 +214,19 @@ async def process_vote_withdraw_result(record_id: int, group_id: int):
         await bot.send_group_msg(group_id=group_id, message=Message(MessageSegment.text(f"获取投票记录 [{record_id}] 失败喵~")))
     else:
         data = query_result["data"]
-        vote_result_text = "撤回" if data["agree_count"] > data["oppose_count"] else "不撤回"
+        need_withdraw = data["agree_count"] > data["oppose_count"]
+
+        vote_result_text = "撤回" if need_withdraw else "不撤回"
         await bot.send_group_msg(group_id=group_id, message=Message([
             MessageSegment.text(f'检测时间到了, 撤回 {record_id} 投票结果如下：\n'),
             MessageSegment.text(f'同意：{data["agree_count"]}\n'),
             MessageSegment.text(f'反对：{data["oppose_count"]}\n'),
             MessageSegment.text(f'弃权：{data["abstain_count"]}\n'),
-            MessageSegment.text(f"最终结果为 {vote_result_text} (测试版本，暂时不做任何操作)")
+            MessageSegment.text(f"最终结果为 {vote_result_text} ")
         ]))
+
+        if need_withdraw:
+            await bot.delete_msg(message_id=data["referenced_message_id"])
 
 async def process_vote_withdraw_command(event: GroupMessageEvent):
     # 检查是否引用消息
