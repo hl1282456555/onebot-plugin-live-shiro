@@ -371,3 +371,9 @@ async def handle_abstain_withdraw(event: GroupMessageEvent, args: Message = Comm
             MessageSegment.reply(event.message_id),
             MessageSegment.text("请输入正确的命令内容，不要像狗哥一样乱来喵~")
         ]))
+
+test_command = on_command("testtime")
+@test_command.handle()
+async def handle_test_command():
+    run_date = datetime.now() + timedelta(minutes=1)
+    await test_command.finish(f'投票任务计划时间：{run_date.strftime("%Y-%m-%d %H:%M:%S")}')
