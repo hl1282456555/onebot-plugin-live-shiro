@@ -2,6 +2,7 @@ import aiosqlite
 
 from typing import Any
 from datetime import datetime, timedelta
+import pytz
 
 from nonebot import on_command, get_bot, logger
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageSegment
@@ -13,6 +14,8 @@ from nonebot_plugin_apscheduler import scheduler
 from .common import *
 
 DB_PATH = "./cache/vote.db"
+
+time_zone = pytz.timezone("Asia/ShangHai")
 
 async def vote_exists(message_id: int) -> bool:
     """
@@ -375,5 +378,5 @@ async def handle_abstain_withdraw(event: GroupMessageEvent, args: Message = Comm
 test_command = on_command("testtime")
 @test_command.handle()
 async def handle_test_command():
-    run_date = datetime.now() + timedelta(minutes=1)
+    run_date = datetime.now(time_zone) + timedelta(minutes=1)
     await test_command.finish(f'投票任务计划时间：{run_date.strftime("%Y-%m-%d %H:%M:%S")}')
