@@ -211,7 +211,7 @@ async def process_vote_withdraw_result(record_id: int, group_id: int):
 
     query_result = await get_record_by_id(record_id)
     if not query_result["success"]:
-        await bot.send_group_msg(group_id=group_id, message=Message(MessageSegment.text(f"获取投票记录 [{record_id}] 失败瞄~")))
+        await bot.send_group_msg(group_id=group_id, message=Message(MessageSegment.text(f"获取投票记录 [{record_id}] 失败喵~")))
     else:
         data = query_result["data"]
         vote_result_text = "撤回" if data["agree_count"] > data["oppose_count"] else "不撤回"
@@ -231,7 +231,7 @@ async def process_vote_withdraw_command(event: GroupMessageEvent):
         # 获取被引用消息的ID
         referenced_message_id = event.reply.message_id
         if await vote_exists(referenced_message_id):
-            await vote_command.finish("该消息已经存在撤回投票，请等待结果瞄~")
+            await vote_command.finish("该消息已经存在撤回投票，请等待结果喵~")
 
         create_result = await create_record(referenced_message_id,
                                     event.user_id,
@@ -256,7 +256,7 @@ async def process_vote_withdraw_command(event: GroupMessageEvent):
             MessageSegment.text(f'/agree {create_result["data"]} - 同意撤回\n'),
             MessageSegment.text(f'/oppose {create_result["data"]} - 反对撤回\n'),
             MessageSegment.text(f'/abstain {create_result["data"]} - 弃权\n'),
-            MessageSegment.text("将在一分钟后统计投票结果瞄~")
+            MessageSegment.text("将在一分钟后统计投票结果喵~")
         ]))
 
 vote_command = on_command("vote", block=False)
@@ -280,13 +280,13 @@ async def process_memeber_vote_withdraw(
         logger.warning(f'查询投票信息失败 - [{record_id}] : {query_result["error"]}')
         await command.finish(Message([
             MessageSegment.reply(event.message_id),
-            MessageSegment.text(f'查询投票记录 [{record_id}] 失败，请检查命令瞄~')
+            MessageSegment.text(f'查询投票记录 [{record_id}] 失败，请检查命令喵~')
         ]))
 
     start_time = datetime.strptime(query_result["data"]["timestamp"], "%Y-%m-%d %H:%M:%S")
     passed_time = datetime.now() - start_time
     if passed_time >= timedelta(minutes=1):
-        await command.finish(f"投票 [{record_id}] 已经过期了瞄~")
+        await command.finish(f"投票 [{record_id}] 已经过期了喵~")
 
     insert_user_result = await insert_user_vote(record_id, event.user_id, vote_type)
     if insert_user_result["status"] != "success":
@@ -306,13 +306,17 @@ async def process_memeber_vote_withdraw(
                 MessageSegment.text(f'数据库出错了，请联系管理员：{insert_user_result["error"]}')
             ]))
 
-    new_count = query_result["data"]["oppose_count"] + 1
-    update_result = await update_record(int(record_id), oppose_count=new_count)
+    vote_type_field = f"{vote_type}_count"
+    new_count = query_result["data"][vote_type_field] + 1
+    update_fields = {}
+    update_fields[vote_type_field] = new_count
+
+    update_result = await update_record(int(record_id), **update_fields)
     if not update_result["success"]:
         logger.warning(f'更新投票信息失败 - [{record_id}] : {update_result["error"]}')
         await command.finish(Message([
             MessageSegment.reply(event.message_id),
-            MessageSegment.text(f"更新投票 [{record_id}] 信息失败，请联系管理员瞄~")
+            MessageSegment.text(f"更新投票 [{record_id}] 信息失败，请联系管理员喵~")
         ]))
 
     await command.finish(Message([
