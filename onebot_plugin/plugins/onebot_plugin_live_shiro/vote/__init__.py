@@ -27,13 +27,13 @@ async def _startup():
             await db.execute("""
                 CREATE TABLE vote_withdraw (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    referenced_message_id TEXT NOT NULL,  -- 被引用的消息ID
-                    initiator_id TEXT NOT NULL,           -- 投票发起人ID
+                    referenced_message_id INTEGER DEFAULT 0,     -- 被引用的消息ID
+                    initiator_id INTEGER DEFAULT 0,              -- 投票发起人ID
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    content TEXT NOT NULL,                -- 消息内容
-                    agree_count INTEGER DEFAULT 0,        -- 同意票数量
-                    oppose_count INTEGER DEFAULT 0,       -- 反对票数量
-                    abstain_count INTEGER DEFAULT 0       -- 弃权票数量
+                    content TEXT NOT NULL,                       -- 消息内容
+                    agree_count INTEGER DEFAULT 0,               -- 同意票数量
+                    oppose_count INTEGER DEFAULT 0,              -- 反对票数量
+                    abstain_count INTEGER DEFAULT 0              -- 弃权票数量
                 )
             """)
             await db.commit()
