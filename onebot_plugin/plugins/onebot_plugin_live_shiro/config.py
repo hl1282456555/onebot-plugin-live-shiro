@@ -10,4 +10,5 @@ class Config(BaseModel):
     live_shiro_twitch_url: str = ""
     live_shiro_discord_url: str = ""
     live_shiro_steam_friend_code: int = -1
-
+    live_shiro_twitch_client_id: str = ""
+    live_shiro_twitch_client_secret: str = ""
