@@ -4,7 +4,7 @@ from typing import Any
 from datetime import datetime, timedelta
 import pytz
 
-from nonebot import on_command, get_bot, logger
+from nonebot import on_command, on_startswith, get_bot, get_plugin_config, logger
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageSegment
 from nonebot.params import CommandArg
 from nonebot.matcher import Matcher
@@ -12,8 +12,11 @@ from nonebot.matcher import Matcher
 from nonebot_plugin_apscheduler import scheduler
 
 from .common import *
+from ..config import Config
 
 DB_PATH = "./cache/vote.db"
+
+plugin_config = get_plugin_config(Config)
 
 time_zone = pytz.timezone("Asia/ShangHai")
 
@@ -214,14 +217,19 @@ async def process_vote_withdraw_result(record_id: int, group_id: int):
         await bot.send_group_msg(group_id=group_id, message=Message(MessageSegment.text(f"获取投票记录 [{record_id}] 失败喵~")))
     else:
         data = query_result["data"]
-        vote_result_text = "撤回" if data["agree_count"] > data["oppose_count"] else "不撤回"
+        need_withdraw = data["agree_count"] > data["oppose_count"]
+
+        vote_result_text = "撤回" if need_withdraw else "不撤回"
         await bot.send_group_msg(group_id=group_id, message=Message([
             MessageSegment.text(f'检测时间到了, 撤回 {record_id} 投票结果如下：\n'),
             MessageSegment.text(f'同意：{data["agree_count"]}\n'),
             MessageSegment.text(f'反对：{data["oppose_count"]}\n'),
             MessageSegment.text(f'弃权：{data["abstain_count"]}\n'),
-            MessageSegment.text(f"最终结果为 {vote_result_text} (测试版本，暂时不做任何操作)")
+            MessageSegment.text(f"最终结果为 {vote_result_text} ")
         ]))
+
+        if need_withdraw:
+            await bot.delete_msg(message_id=data["referenced_message_id"])
 
 async def process_vote_withdraw_command(event: GroupMessageEvent):
     # 检查是否引用消息
@@ -378,3 +386,18 @@ async def handle_abstain_withdraw(event: GroupMessageEvent, args: Message = Comm
             MessageSegment.reply(event.message_id),
             MessageSegment.text("请输入正确的命令内容，不要像狗哥一样乱来喵~")
         ]))
+
+async def process_dog_prefix_message(message_id):
+    bot = get_bot()
+
+    await bot.delete_msg(message_id=message_id)
+
+dog_prefix_message = on_startswith("dog_prefix")
+@dog_prefix_message.handle()
+async def handle_dog_prefix_message(event: GroupMessageEvent):
+    scheduler.add_job(
+        process_dog_prefix_message,
+        "date",
+        run_date=datetime.now(time_zone) + timedelta(seconds=5),
+        kwargs={"message_id": event.message_id}
+    )
