@@ -414,7 +414,12 @@ async def get_latest_dynamic() -> None:
 
         image_data = await render_png_from_template(RenderPageType.NORMAL, combined_message, 400)
         for group_id in plugin_config.live_shiro_group_ids:
-            await bot.send_group_msg(group_id=group_id, message=Message([MessageSegment.image(BytesIO(image_data))]))
+            await bot.send_group_msg(group_id=group_id, message=Message([
+                MessageSegment.at("all"),
+                MessageSegment.text(" Shiro发布了一条动态，请注意查收喵~\n"),
+                MessageSegment.image(BytesIO(image_data)),
+                MessageSegment.text(f'\n链接：{combined_message.get("link", "")}')
+            ]))
 
 
 from nonebot import on_command

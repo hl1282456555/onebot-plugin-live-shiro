@@ -14,4 +14,4 @@ CLIENT_ID = plugin_config.live_shiro_twitch_client_id
 CLIENT_SECRET = plugin_config.live_shiro_twitch_client_secret
 
 async def bilibili_bot_connect_handler(bot: Bot) -> Optional[Message]:
-    pass
+    return None
