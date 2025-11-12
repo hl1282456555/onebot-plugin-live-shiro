@@ -41,6 +41,9 @@ async def union_bot_connect_handler(bot: Bot) -> None:
 
     if bilibili_message := await bilibili.bilibili_bot_connect_handler(bot):
         message += Message("\n") + bilibili_message
+    
+    if twitch_message := await twitch.twitch_bot_connect_handler(bot):
+        message += Message("\n") + twitch_message
 
     for user_id in driver.config.superusers:
         await bot.send_private_msg(user_id=user_id, message=message)
