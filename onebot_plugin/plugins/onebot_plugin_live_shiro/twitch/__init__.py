@@ -71,12 +71,6 @@ async def check_stream_status():
                             MessageSegment.text(f" 🎬 {data['data'][0]['user_name']} 当前正在直播！\n标题：{data['data'][0].get('title', '无标题')}")
                         ])
                     )
-            else:
-                for group_id in plugin_config.live_shiro_group_ids:
-                    await bot.send_group_msg(
-                        group_id=group_id,
-                        message="小助手重启检测，当前 Shiro 当前未在Twitch开播， Safe喵~"
-                    )
 
 # ==============================
 # EventSub 注册
