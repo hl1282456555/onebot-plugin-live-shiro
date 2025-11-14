@@ -12,3 +12,4 @@ class Config(BaseModel):
     live_shiro_steam_friend_code: int = -1
     live_shiro_twitch_client_id: str = ""
     live_shiro_twitch_client_secret: str = ""
+    live_shiro_bilibili_live_room_id: int = -1
