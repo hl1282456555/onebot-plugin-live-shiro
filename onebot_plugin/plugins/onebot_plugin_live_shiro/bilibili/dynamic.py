@@ -6,7 +6,7 @@ from typing import Optional
 from io import BytesIO
 
 from bilibili_api import user
-from nonebot import get_bot, get_plugin_config, logger
+from nonebot import get_bot, get_plugin_config, get_driver, logger
 from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from nonebot_plugin_apscheduler import scheduler
@@ -15,6 +15,7 @@ from ..config import Config
 from .dynamic_type import DynamicType, MajorType
 from ..message_render import *
 
+driver_config = get_driver().config
 plugin_config = get_plugin_config(Config)
 
 last_dynamic_timestamp: int = int(time.time())
@@ -323,7 +324,7 @@ dynamic_content_processors = {
     MajorType.MAJOR_TYPE_UPOWER_COMMON: process_dynamic_upower_common
 }
 
-async def get_latest_dynamic() -> None:
+async def get_latest_dynamic(debug_call: bool) -> None:
     bot = get_bot()
 
     logger.info("正在查找 Shiro 的最新动态...")
@@ -383,11 +384,19 @@ async def get_latest_dynamic() -> None:
             logger.warning("解析text失败喵~")
             return
 
-        for group_id in plugin_config.live_shiro_group_ids:
-            await bot.send_group_msg(group_id=group_id, message=Message([
-                    MessageSegment.text(f"Shiro 在 {pub_time} 转发了一条动态喵！\n"),
-                    MessageSegment.text(text)
-                ]))
+        forward_message = Message(
+            [
+                MessageSegment.text(f"Shiro 在 {pub_time} 转发了一条动态喵！\n"),
+                MessageSegment.text(text),
+            ]
+        )
+
+        if debug_call:
+            for user_id in driver_config.superusers:
+                await bot.send_private_msg(user_id=user_id, message=forward_message)
+        else:
+            for group_id in plugin_config.live_shiro_group_ids:
+                await bot.send_group_msg(group_id=group_id, message=forward_message)
     else:
         dynamic_content = module_dynamic.get("major")
         if not dynamic_content:
@@ -413,13 +422,40 @@ async def get_latest_dynamic() -> None:
         combined_message["avatar_url"] = module_author.get("face", "")
 
         image_data = await render_png_from_template(RenderPageType.NORMAL, combined_message, 400)
-        for group_id in plugin_config.live_shiro_group_ids:
-            await bot.send_group_msg(group_id=group_id, message=Message([
-                MessageSegment.at("all"),
-                MessageSegment.text(" Shiro发布了一条动态，请注意查收喵~\n"),
-                MessageSegment.image(BytesIO(image_data)),
-                MessageSegment.text(f'\n链接：{combined_message.get("link", "")}')
-            ]))
+
+        if debug_call:
+            for user_id in driver_config.superusers:
+                await bot.send_private_msg(
+                    user_id=user_id,
+                    message=Message(
+                        [
+                            MessageSegment.text(
+                                " Shiro发布了一条动态，请注意查收喵~\n"
+                            ),
+                            MessageSegment.image(BytesIO(image_data)),
+                            MessageSegment.text(
+                                f"\n链接：{combined_message.get('link', '')}"
+                            ),
+                        ]
+                    ),
+                )
+        else:
+            for group_id in plugin_config.live_shiro_group_ids:
+                await bot.send_group_msg(
+                    group_id=group_id,
+                    message=Message(
+                        [
+                            MessageSegment.at("all"),
+                            MessageSegment.text(
+                                " Shiro发布了一条动态，请注意查收喵~\n"
+                            ),
+                            MessageSegment.image(BytesIO(image_data)),
+                            MessageSegment.text(
+                                f"\n链接：{combined_message.get('link', '')}"
+                            ),
+                        ]
+                    ),
+                )
 
 
 from nonebot import on_command
@@ -431,11 +467,17 @@ async def test_dynamic_handler() -> None:
     global last_dynamic_timestamp
     pre_last_time = last_dynamic_timestamp
     last_dynamic_timestamp = 0
-    await get_latest_dynamic()
+    await get_latest_dynamic(debug_call=True)
     last_dynamic_timestamp = pre_last_time
 
 async def dynamic_bot_connect_handler(bot: Bot) -> Optional[Message]:
-    scheduler.add_job(get_latest_dynamic, "interval", minutes=2, id="job_get_latest_dynamic")
+    scheduler.add_job(
+        get_latest_dynamic,
+        "interval",
+        minutes=2,
+        id="job_get_latest_dynamic",
+        kwargs={"debug_call": False}
+    )
     return Message("开始监控 Shiro 的动态喵~")
 
 __all__ = ["dynamic_bot_connect_handler"]
