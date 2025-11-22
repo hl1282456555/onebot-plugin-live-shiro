@@ -20,9 +20,17 @@ class NormalData(TypedDict):
     content: str
     image_urls: Optional[list[str]]
 
+class ForwardData(TypedDict):
+    user_name: str
+    avatar_url: str
+    time: str
+    title: str
+    content: str
+    forwarded_card_url: str
 
 class RenderPageType(Enum):
     NORMAL = "normal.html"
+    FORWARD = "forward.html"
 
 
 def crop_transparent_edges(img: Image.Image, border: int = 10) -> Image.Image:
@@ -90,13 +98,22 @@ async def _render_png_from_html(html_str: str, width: int = 800) -> bytes:
 
 async def render_png_from_template(render_type: RenderPageType, data: dict, width: int = 800) -> bytes:
     """从模板数据生成 PNG"""
-    # 保证 content 是字符串，替换换行符 \n
-    data["content"] = data.get("content", "") or ""
-    # 保留换行符
-    data["content"] = data["content"].replace("\r\n", "\n").replace("\r", "\n")
+    if render_type == RenderPageType.NORMAL:
+        # 保证 content 是字符串，替换换行符
+        data["content"] = data.get("content", "") or ""
+        data["content"] = data["content"].replace("\r\n", "\n").replace("\r", "\n")
+        # 过滤空图片链接
+        data["image_urls"] = [url for url in data.get("image_urls", []) if url]
 
-    # 过滤空图片链接
-    data["image_urls"] = [url for url in data.get("image_urls", []) if url]
+    elif render_type == RenderPageType.FORWARD:
+        # 保证 content 是字符串
+        data["content"] = data.get("content", "") or ""
+        data["content"] = data["content"].replace("\r\n", "\n").replace("\r", "\n")
+        # forwarded_card_url 必须存在，否则给个空字符串兜底
+        data["forwarded_card_url"] = data.get("forwarded_card_url", "")
+
+    else:
+        raise ValueError(f"Unsupported render_type: {render_type}")
 
     template = env.get_template(render_type.value)
     html_str = template.render(data)

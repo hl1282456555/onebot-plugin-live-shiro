@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>{{ title }}</title>
+<style>
+html, body {
+    margin: 0; padding: 0; background: transparent;
+    font-family: "HarmonyOS Sans SC", "Noto Sans CJK SC", sans-serif;
+}
+
+/* forward 卡片容器 */
+.content-wrapper {
+    display: inline-block;
+    padding: 20px;
+    border-radius: 24px;
+    background: rgba(255,255,255,0.95);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    box-sizing: border-box;
+    max-width: 1200px; /* 最大宽度限制 */
+    width: auto;       /* 容器宽度自适应内容 */
+}
+
+/* 顶部用户信息 */
+.header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    margin-right: 12px;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.username {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.time {
+    font-size: 12px;
+    color: #666;
+}
+
+/* 转发文字内容 */
+.forward-content {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+    white-space: pre-wrap;
+}
+
+/* 被转发卡片容器 */
+.repost-box {
+    border-radius: 16px;
+    overflow: hidden;      /* 裁剪圆角 */
+    background: transparent;
+    margin-top: 8px;
+    width: 100%;           /* 容器宽度与 content-wrapper 保持一致 */
+}
+
+/* 被转发卡片图片自适应 */
+.forwarded-card-image {
+    width: 100%;   /* 填满父容器宽度 */
+    height: auto;  /* 保持长宽比例 */
+    display: block;
+    border-radius: 0; /* 不加圆角，由 repost-box 裁剪 */
+}
+</style>
+</head>
+<body>
+<div class="content-wrapper">
+
+    <!-- 顶部用户信息 -->
+    <div class="header">
+        <img src="{{ avatar_url }}" class="avatar"/>
+        <div class="user-info">
+            <div class="username">{{ user_name }}</div>
+            <div class="time">{{ time }}</div>
+        </div>
+    </div>
+
+    <!-- 转发文字 -->
+    <div class="forward-content">{{ content }}</div>
+
+    <!-- 被转发动态卡片 -->
+    <div class="repost-box">
+        {% if forwarded_card_url %}
+            <img src="{{ forwarded_card_url }}" class="forwarded-card-image"/>
+        {% else %}
+            <div style="font-size: 13px; color: #666;">（原动态不存在或已删除）</div>
+        {% endif %}
+    </div>
+
+</div>
+</body>
+</html>

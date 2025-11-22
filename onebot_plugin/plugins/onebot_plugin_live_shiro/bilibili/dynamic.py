@@ -1,5 +1,6 @@
 import json
 import time
+from PIL import Image
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -7,6 +8,7 @@ from io import BytesIO
 
 from bilibili_api import user
 from nonebot import get_bot, get_plugin_config, get_driver, logger
+from nonebot.permission import SUPERUSER
 from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from nonebot_plugin_apscheduler import scheduler
@@ -21,6 +23,15 @@ plugin_config = get_plugin_config(Config)
 last_dynamic_timestamp: int = int(time.time())
 
 bili_user = user.User(plugin_config.live_shiro_uid)
+
+def image_bytes_to_data_url(img_bytes: bytes) -> str:
+    img = Image.open(BytesIO(img_bytes))
+    img_type = img.format.lower()  # 'png', 'jpeg', 'gif', etc.
+    if img_type == "jpeg":
+        img_type = "jpg"
+    import base64
+    b64 = base64.b64encode(img_bytes).decode("ascii")
+    return f"data:image/{img_type};base64,{b64}"
 
 async def fetch_all_dynamics() -> list[dict]:
     """
@@ -353,9 +364,14 @@ async def get_latest_dynamic(debug_call: bool) -> None:
 
     dynamic_type = DynamicType.from_dynamic_type(last_dynamic.get("type", ""))
 
+    orig = {}
     modules = {}
     if dynamic_type == DynamicType.FORWARD:
-        modules = last_dynamic.get("orig")
+        orig = last_dynamic.get("orig")
+        if not orig:
+            logger.warning("解析转发动态orig失败喵~")
+            return
+        modules = orig.get("modules")
     else:
         modules = last_dynamic.get("modules")
 
@@ -373,101 +389,105 @@ async def get_latest_dynamic(debug_call: bool) -> None:
         logger.warning("解析module_dynamic失败喵~")
         return
 
-    if dynamic_type == DynamicType.FORWARD:
-        dynamic_content = module_dynamic.get("desc")
-        if not dynamic_content:
-            logger.warning("解析desc失败喵~")
-            return
+    dynamic_content = module_dynamic.get("major")
+    if not dynamic_content:
+        logger.warning("解析major失败喵")
+        return
 
-        text = dynamic_content.get("text")
-        if not text:
-            logger.warning("解析text失败喵~")
-            return
+    combined_message = {}
 
-        forward_message = Message(
-            [
-                MessageSegment.text(f"Shiro 在 {pub_time} 转发了一条动态喵！\n"),
-                MessageSegment.text(text),
-            ]
-        )
-
-        if debug_call:
-            for user_id in driver_config.superusers:
-                await bot.send_private_msg(user_id=user_id, message=forward_message)
-        else:
-            for group_id in plugin_config.live_shiro_group_ids:
-                await bot.send_group_msg(group_id=group_id, message=forward_message)
+    major_type = MajorType[dynamic_content.get("type")]
+    if major_type in dynamic_content_processors:
+        combined_message = await dynamic_content_processors[major_type](dynamic_content)
     else:
-        dynamic_content = module_dynamic.get("major")
-        if not dynamic_content:
-            logger.warning("解析major失败喵")
+        for group_id in plugin_config.live_shiro_group_ids:
+            await bot.send_group_msg(group_id=group_id, message=Message("解析到不支持的动态了喵~"))
             return
 
-        combined_message = {}
+    success = combined_message["success"]
+    if not success:
+        return
 
-        major_type = MajorType[dynamic_content.get("type")]
-        if major_type in dynamic_content_processors:
-            combined_message = await dynamic_content_processors[major_type](dynamic_content)
-        else:
-            for group_id in plugin_config.live_shiro_group_ids:
-                await bot.send_group_msg(group_id=group_id, message=Message("解析到不支持的动态了喵~"))
-                return
+    combined_message["time"] = pub_time
+    combined_message["user_name"] = module_author.get("name", "未知用户")
+    combined_message["avatar_url"] = module_author.get("face", "")
 
-        success = combined_message["success"]
-        if not success:
+    if dynamic_type == DynamicType.FORWARD:
+        combined_message.pop("link", None)
+
+    image_data = await render_png_from_template(RenderPageType.NORMAL, combined_message, width=400)
+
+    message = Message("")
+
+    if dynamic_type == DynamicType.FORWARD:
+        source_modules = last_dynamic.get("modules")
+        if not source_modules:
+            logger.warning("解析转发动态modules失败喵~")
             return
 
-        combined_message["time"] = pub_time
-        combined_message["user_name"] = module_author.get("name", "未知用户")
-        combined_message["avatar_url"] = module_author.get("face", "")
+        source_module_author = source_modules.get("module_author")
+        if not source_module_author:
+            logger.warning("解析转发动态module_author失败喵~")
+            return
 
-        image_data = await render_png_from_template(RenderPageType.NORMAL, combined_message, 400)
+        source_module_dynamic = source_modules.get("module_dynamic")
+        if not source_module_dynamic:
+            logger.warning("解析转发动态module_dynamic失败喵~")
+            return
 
-        if debug_call:
-            for user_id in driver_config.superusers:
-                await bot.send_private_msg(
-                    user_id=user_id,
-                    message=Message(
-                        [
-                            MessageSegment.text(
-                                " Shiro发布了一条动态，请注意查收喵~\n"
-                            ),
-                            MessageSegment.image(BytesIO(image_data)),
-                            MessageSegment.text(
-                                f"\n链接：{combined_message.get('link', '')}"
-                            ),
-                        ]
-                    ),
-                )
-        else:
-            for group_id in plugin_config.live_shiro_group_ids:
-                await bot.send_group_msg(
-                    group_id=group_id,
-                    message=Message(
-                        [
-                            MessageSegment.at("all"),
-                            MessageSegment.text(
-                                " Shiro发布了一条动态，请注意查收喵~\n"
-                            ),
-                            MessageSegment.image(BytesIO(image_data)),
-                            MessageSegment.text(
-                                f"\n链接：{combined_message.get('link', '')}"
-                            ),
-                        ]
-                    ),
-                )
+        source_module_dynamic_desc = source_module_dynamic.get("desc")
+        if not source_module_dynamic_desc:
+            logger.warning("解析转发动态desc失败喵~")
+            return
+
+        forward_data = {
+            "user_name": source_module_author.get("name", "未知用户"),
+            "avatar_url": source_module_author.get("face", ""),
+            "time": source_module_author.get("pub_time", ""),
+            "title": "转发了动态",
+            "content": source_module_dynamic_desc.get("text", ""),
+            "forwarded_card_url": image_bytes_to_data_url(image_data)
+        }
+
+        image_data = await render_png_from_template(RenderPageType.FORWARD, forward_data, width=600)
+        message = Message([
+                        MessageSegment.text(
+                            " Shiro转发了一条动态，请注意查收喵~\n"
+                        ),
+                        MessageSegment.image(BytesIO(image_data)),
+                        MessageSegment.text(
+                            f"\n链接：{process_jump_url(source_module_author.get('jump_url', '无链接'))}"
+                        ),
+        ])
+    else:
+        message = Message([
+                        MessageSegment.text(
+                            " Shiro发布了一条动态，请注意查收喵~\n"
+                        ),
+                        MessageSegment.image(BytesIO(image_data)),
+                        MessageSegment.text(
+                            f"\n链接：{combined_message.get('link', '')}"
+                        ),
+                    ])
+
+    if debug_call:
+        for user_id in driver_config.superusers:
+            await bot.send_private_msg(user_id=int(user_id), message=message)
+    else:
+        for group_id in plugin_config.live_shiro_group_ids:
+            await bot.send_group_msg(group_id=group_id, message=MessageSegment.at('all') + message)
 
 
 from nonebot import on_command
 from nonebot.rule import to_me
 
-test_command = on_command("test_dynamic", rule=to_me())
+test_command = on_command("test_dynamic", rule=to_me(), permission=SUPERUSER)
 @test_command.handle()
 async def test_dynamic_handler() -> None:
     global last_dynamic_timestamp
     pre_last_time = last_dynamic_timestamp
     last_dynamic_timestamp = 0
-    await get_latest_dynamic(debug_call=True)
+    await get_latest_dynamic(debug_call=False)
     last_dynamic_timestamp = pre_last_time
 
 async def dynamic_bot_connect_handler(bot: Bot) -> Optional[Message]:
