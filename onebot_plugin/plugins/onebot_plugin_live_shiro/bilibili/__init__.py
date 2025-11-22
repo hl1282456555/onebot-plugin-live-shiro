@@ -12,7 +12,7 @@ async def bilibili_bot_connect_handler(bot: Bot) -> Optional[Message]:
     if dynamic_message := await dynamic.dynamic_bot_connect_handler(bot):
         bilibili_message += dynamic_message
     else:
-        bilibili_message += Message("动态监控启动失败瞄~")
+        bilibili_message += Message("动态监控启动失败喵~")
 
     if live_room_message := await live_room.start_monitor_bilibili_live_status(bot):
         bilibili_message += live_room_message

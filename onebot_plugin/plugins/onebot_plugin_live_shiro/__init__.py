@@ -32,7 +32,7 @@ async def union_bot_connect_handler(bot: Bot) -> None:
         return
 
     message = Message([
-        MessageSegment.text("小助手已经安全启动，今天又是美好的一天瞄~\n"),
+        MessageSegment.text("小助手已经安全启动，今天又是美好的一天喵~\n"),
         MessageSegment.text("服务启动状态：\n")
     ])
 
