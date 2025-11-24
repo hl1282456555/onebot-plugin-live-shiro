@@ -5,17 +5,44 @@ from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import Message, MessageEvent, MessageSegment
 from nonebot.params import ArgPlainText
 from nonebot.rule import to_me
-from nonebot_plugin_apscheduler import scheduler
 
-memo_command_group = CommandGroup("memo", rule=to_me(), prefix_aliases=True)
+memo_command_group = CommandGroup("memo", prefix_aliases=True)
 
 help_command = memo_command_group.command("help")
 @help_command.handle()
 async def _(bot, event: MessageEvent, ars: str = ArgPlainText()):
     await help_command.finish(Message([
         MessageSegment.reply(event.message_id),
-        MessageSegment.text("还在开发中喵~")
+        MessageSegment.text("定时备忘录帮助文档：\n"),
+        MessageSegment.text("1. 添加备忘录：@我 /memo.add <时间> <内容>\n"),
+        MessageSegment.text("2. 查看备忘录：@我 /memo.list\n"),
+        MessageSegment.text("3. 删除备忘录：@我 /memo.delete <备忘录ID>\n"),
+        MessageSegment.text("4. 修改备忘录：@我 /memo.edit <备忘录ID> <时间> <内容>\n"),
+        MessageSegment.text("5. 帮助文档：@我 /memo.help\n"),
+        MessageSegment.text("以上功能均未完成喵~")
     ]))
+
+add_command = memo_command_group.command("add")
+@add_command.handle()
+async def _(bot, event: MessageEvent, ars: str = ArgPlainText()):
+    pass
+
+list_command = memo_command_group.command("list")
+@list_command.handle()
+async def _(bot, event: MessageEvent, ars: str = ArgPlainText()):
+    pass
+
+delete_command = memo_command_group.command("delete")
+@delete_command.handle()
+async def _(bot, event: MessageEvent, ars: str = ArgPlainText()):
+    pass
+
+edit_command = memo_command_group.command("edit")
+@edit_command.handle()
+async def _(bot, event: MessageEvent, ars: str = ArgPlainText()):
+    pass
 
 async def memo_bot_connect_handler(bot: Bot) -> Optional[Message]:
     return Message("定时备忘录已启动喵~")
+
+__all__ = ["memo_bot_connect_handler"]
