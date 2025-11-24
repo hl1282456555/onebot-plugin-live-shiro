@@ -11,7 +11,7 @@ from nonebot.matcher import Matcher
 
 from nonebot_plugin_apscheduler import scheduler
 
-from .common import *
+from ..common import *
 from ..config import Config
 
 DB_PATH = "./cache/vote.db"
