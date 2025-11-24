@@ -12,8 +12,7 @@ from ..config import Config
 from pathlib import Path
 import json
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-CACHE_PATH = ROOT_DIR / "cache" / "live_status.txt"
+CACHE_PATH = Path("./cache/live_status.txt")
 
 plugin_config = get_plugin_config(Config)
 
