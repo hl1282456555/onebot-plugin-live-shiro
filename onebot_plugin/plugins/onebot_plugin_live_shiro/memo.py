@@ -24,7 +24,7 @@ plugin_config = get_plugin_config(Config)
 
 memo_command = on_command("memo", rule=to_me(), force_whitespace=True)
 @memo_command.handle()
-async def handle_memo_command(bot: Bot, event: MessageEvent, args: str = ArgPlainText()):
+async def handle_memo_command(bot: Bot, event: MessageEvent):
     await memo_command.finish(Message([
         MessageSegment.reply(event.message_id),
         MessageSegment.text("真正在开发中喵~")
