@@ -9,11 +9,29 @@ from bilibili_api import live
 
 from ..config import Config
 
+from pathlib import Path
 import json
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+CACHE_PATH = ROOT_DIR / "cache" / "live_status.txt"
 
 plugin_config = get_plugin_config(Config)
 
 live_status = 0
+
+def load_live_status_from_cache() -> int:
+    if not CACHE_PATH.exists():
+        return 0
+    try:
+        content = CACHE_PATH.read_text(encoding="utf-8").strip()
+        return int(content or 0)
+    except Exception:
+        return 0
+
+def save_live_status_to_cache(status: int):
+    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CACHE_PATH.write_text(str(status), encoding="utf-8")
+
 
 async def check_live_status(bot: Bot):
     global live_status
@@ -27,6 +45,8 @@ async def check_live_status(bot: Bot):
         return
 
     live_status = room_info["live_status"]
+    save_live_status_to_cache(live_status)
+
     message = Message(MessageSegment.at('all'))
     if live_status == 0:
         message += " Shiro 已经下播啦，辛苦各位观看喵~\n"
@@ -50,5 +70,10 @@ async def check_live_status(bot: Bot):
         await bot.send_group_msg(group_id=group_id, message=message)
 
 async def start_monitor_bilibili_live_status(bot: Bot) -> Optional[Message]:
+    global live_status
+
+    live_status = load_live_status_from_cache()
+    logger.info(f"Initialized live_status from cache: {live_status}")
+
     scheduler.add_job(check_live_status, "interval", minutes=1, kwargs={'bot': bot})
     return Message("已开始监控 Shiro 的B站直播状态喵~")

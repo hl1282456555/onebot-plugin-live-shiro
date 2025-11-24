@@ -35,9 +35,6 @@ def pull_latest_repo(repo_path, branch="main"):
         return False, str(e)
 
 def new_commit_count(repo_path, branch="main"):
-    # 拉取远程信息
-    subprocess.run(["git", "fetch"], cwd=repo_path)
-
     # 统计本地与远程的差异 commit 数
     result = subprocess.run(
         ["git", "rev-list", f"HEAD..origin/{branch}", "--count"],
