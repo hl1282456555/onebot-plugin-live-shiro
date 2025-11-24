@@ -1,16 +1,14 @@
 import os
 
-import aiosqlite
-
 from nonebot import get_driver, logger
 
-from .common import *
+from ..common import *
 from .withdraw import *
 
 driver = get_driver()
 
 @driver.on_startup
-async def _startup():
+async def handle_vote_driver_startup():
     db_path = "./cache/vote.db"
 
     # 创建 cache 目录（如果不存在）
