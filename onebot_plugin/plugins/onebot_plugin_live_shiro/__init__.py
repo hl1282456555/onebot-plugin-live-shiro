@@ -20,7 +20,7 @@ from nonebot import get_driver, get_plugin_config, logger
 from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 
-from . import alive, bible, bilibili, common, vote, twitch, update_self
+from . import alive, bible, bilibili, common, vote, twitch, update_self, memo
 
 plugin_config = get_plugin_config(Config)
 
@@ -41,9 +41,12 @@ async def union_bot_connect_handler(bot: Bot) -> None:
 
     if bilibili_message := await bilibili.bilibili_bot_connect_handler(bot):
         message += Message("\n") + bilibili_message
-    
+
     if twitch_message := await twitch.twitch_bot_connect_handler(bot):
         message += Message("\n") + twitch_message
+
+    if memo_message := await memo.memo_bot_connect_handler(bot):
+        message += Message("\n") + memo_message
 
     for user_id in driver.config.superusers:
         await bot.send_private_msg(user_id=user_id, message=message)
