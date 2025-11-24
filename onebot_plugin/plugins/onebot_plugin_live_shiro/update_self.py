@@ -35,15 +35,27 @@ def pull_latest_repo(repo_path, branch="main"):
         return False, str(e)
 
 def new_commit_count(repo_path, branch="main"):
-    # 统计本地与远程的差异 commit 数
+    """
+    判断本地代码是否落后于远程分支，并返回差异 commit 数。
+    如果远程有更新，会先 fetch 最新信息。
+    """
+    # 1. 获取远程最新信息
+    subprocess.run(["git", "fetch"], cwd=repo_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    # 2. 统计本地与远程的差异 commit 数
     result = subprocess.run(
         ["git", "rev-list", f"HEAD..origin/{branch}", "--count"],
         cwd=repo_path,
         stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True
     )
 
-    count = int(result.stdout.strip())
+    try:
+        count = int(result.stdout.strip())
+    except ValueError:
+        count = 0  # 防止输出为空或出错
+
     return count
 
 async def run_script_detached(script_path: str):
