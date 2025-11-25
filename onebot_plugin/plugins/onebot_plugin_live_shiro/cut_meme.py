@@ -164,7 +164,7 @@ async def handle_cut_meme(bot: Bot, event: MessageEvent, shell_args = ShellComma
     await cut_meme_command.send(Message([
         MessageSegment.reply(event.message_id),
         MessageSegment.text("表情包已生成，请查收~"),
-        MessageSegment("file", {"file": str(archive_path)})
+        MessageSegment("file", {"file": str(archive_path.resolve())})
     ]))
 
     remove_cut_meme_cache(event.message_id)
