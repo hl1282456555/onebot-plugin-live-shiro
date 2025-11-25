@@ -130,6 +130,10 @@ def remove_cut_meme_cache(message_id: int):
     cache_dir = Path("./cache/cut_meme") / str(message_id)
     if cache_dir.exists() and cache_dir.is_dir():
         shutil.rmtree(cache_dir)
+    
+    cache_dir = Path("./cache/cut_meme") / f"{str(message_id)}_split"
+    if cache_dir.exists() and cache_dir.is_dir():
+        shutil.rmtree(cache_dir)
 
 parser = ArgumentParser()
 parser.add_argument("-c", "--cols", type=int, default=4, help="表情包列数，默认为4")
