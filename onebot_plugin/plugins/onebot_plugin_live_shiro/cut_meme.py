@@ -198,6 +198,6 @@ async def handle_cut_meme(bot: Bot, event: MessageEvent, shell_args = ShellComma
     image_paths = await download_images(bot, event.message_id, message_contents)
     archive_path = await split_images(event.message_id, image_paths, rows=arg_dict["rows"], cols=arg_dict["cols"])
     archive_segment = await upload_group_file_segment(bot, event.group_id, archive_path)
-    await cut_meme_command.send(Message([archive_segment]))
+    # await cut_meme_command.send(Message([archive_segment]))
 
     remove_cut_meme_cache(event.message_id)
