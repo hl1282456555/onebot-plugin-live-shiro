@@ -144,8 +144,7 @@ async def upload_group_file_segment(bot: Bot, group_id: int, file_path: Path) ->
         "upload_group_file",
         group_id=group_id,
         file=str(file_path.resolve()),  # 使用绝对路径
-        name=file_path.name,
-        folder="小助理专用"  # 可选群文件夹
+        name=file_path.name
     )
 
     file_id = file_info.get("file_id")
@@ -198,10 +197,11 @@ async def handle_cut_meme(bot: Bot, event: MessageEvent, shell_args = ShellComma
     
     image_paths = await download_images(bot, event.message_id, message_contents)
     archive_path = await split_images(event.message_id, image_paths, rows=arg_dict["rows"], cols=arg_dict["cols"])
+    archive_segment = await upload_group_file_segment(bot, event.group_id, archive_path)
     await cut_meme_command.send(Message([
         MessageSegment.reply(event.message_id),
         MessageSegment.text("表情包已生成，请查收~"),
-        await upload_group_file_segment(bot, event.group_id, archive_path)
+        archive_segment
     ]))
 
     remove_cut_meme_cache(event.message_id)
