@@ -151,7 +151,7 @@ async def upload_group_file_segment(bot: Bot, group_id: int, file_path: Path) ->
     if not file_id:
         raise RuntimeError("上传群文件失败，未返回 file_id")
 
-    return MessageSegment("file", {"file_id": file_id})
+    return MessageSegment("file", {"file_id": file_id, "name": file_path.name})
 
 def remove_cut_meme_cache(message_id: int):
     cache_dir = Path("./cache/cut_meme") / str(message_id)
