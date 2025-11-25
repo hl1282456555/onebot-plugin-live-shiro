@@ -13,12 +13,13 @@ cut_meme_command = on_shell_command("cut_meme", rule=to_me(), parser=parser)
 @cut_meme_command.handle()
 async def handle_cut_meme(event: MessageEvent, shell_args = ShellCommandArgs()):
     arg_dict = vars(shell_args)
-    await cut_meme_command.finish(
-        Message([
-            MessageSegment.reply(event.message_id),
-            MessageSegment.text(f"接收到参数{arg_dict}")
-        ])
-    )
+    if "status" in arg_dict:
+        await cut_meme_command.finish(
+            Message([
+                MessageSegment.reply(event.message_id),
+                MessageSegment.text(arg_dict["message"])
+            ])
+        )
 
 # from PIL import Image
 # import os
