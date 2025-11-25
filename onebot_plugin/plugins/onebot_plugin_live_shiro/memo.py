@@ -16,6 +16,8 @@ import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from openai import AsyncOpenAI
+
 MEMO_DB_PATH = "./cache/memo.db"
 
 BEIJING_TZ = ZoneInfo("Asia/Shanghai")  # 北京时间
@@ -25,9 +27,24 @@ plugin_config = get_plugin_config(Config)
 memo_command = on_command("memo", rule=to_me(), force_whitespace=True)
 @memo_command.handle()
 async def handle_memo_command(bot: Bot, event: MessageEvent):
+    content = event.get_plaintext()
+    llm_client = AsyncOpenAI(api_key=plugin_config.live_shiro_deep_seek_key, base_url="https://api.deepseek.com/beta")
+
+    llm_response = await llm_client.chat.completions.create(model="deepseek-chat", messages=[
+        {"role": "system", "content": "你是一只猫娘，请用可爱的语气回答用户的问题，对话结尾要带喵~。回答要尽量简短，但是不丢失语义。"},
+        {"role": "user", "content": content}
+    ])
+
+    reply_text = "不想理你喵~"
+    if getattr(llm_response, "choices", None):
+        choice = llm_response.choices[0]
+        content = getattr(getattr(choice, "message", None), "content", None)
+        if content:
+            reply_text = content
+
     await memo_command.finish(Message([
         MessageSegment.reply(event.message_id),
-        MessageSegment.text("真正在开发中喵~")
+        MessageSegment.text(reply_text)
     ]))
 
 async def memo_bot_connect_handler(bot: Bot) -> Optional[Message]:
