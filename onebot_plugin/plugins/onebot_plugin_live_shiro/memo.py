@@ -1,146 +1,25 @@
+import json
+import os
+from datetime import datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
-from nonebot import on_command, get_driver, get_plugin_config, logger
+from nonebot import CommandGroup, get_driver, get_plugin_config, logger
 from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import Message, MessageEvent, MessageSegment
 from nonebot.rule import to_me
-
 from nonebot_plugin_apscheduler import scheduler
 
 from .common import get_db_connection
 from .config import Config
 
-import os
-import json
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
-from openai import AsyncOpenAI
-
 MEMO_DB_PATH = "./cache/memo.db"
 
 BEIJING_TZ = ZoneInfo("Asia/Shanghai")  # 北京时间
 
-memo_tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "create_memo",
-            "description": "创建一个新的备忘录提醒，支持单次或循环提醒",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "group_id": {"type": ["integer", "null"], "description": "群组 ID，如果是群提醒，可不填则默认为私聊"},
-                    "content": {"type": "string", "description": "备忘录的文本内容"},
-                    "scheduled_time": {"type": ["string", "null"], "description": "单次提醒时间，ISO 8601"},
-                    "loop_type": {"type": "integer", "description": "循环类型：0=不循环,1=每日,2=每周,3=每月,4=每年"},
-                    "loop_hour": {"type": ["integer", "null"], "description": "循环提醒小时 0-23"},
-                    "loop_minute": {"type": ["integer", "null"], "description": "循环提醒分钟 0-59"},
-                    "loop_weekday": {"type": ["integer", "null"], "description": "每周循环时 0=周一, 6=周日"},
-                    "loop_day": {"type": ["integer", "null"], "description": "每月/每年循环时表示几号"},
-                    "loop_month": {"type": ["integer", "null"], "description": "每年循环时表示月份 1-12"}
-                },
-                "required": ["content", "loop_type"]
-            },
-            "strict": True
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "update_memo",
-            "description": "更新已有的备忘录，可修改内容、提醒时间或循环参数",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "memo_id": {"type": "integer", "description": "需要更新的备忘录 ID"},
-                    "content": {"type": ["string", "null"], "description": "新的备忘录内容，可选"},
-                    "scheduled_time": {"type": ["string", "null"], "description": "新的单次提醒时间，ISO 8601，可选"},
-                    "loop_type": {"type": ["integer", "null"], "description": "新的循环类型，可选"},
-                    "loop_hour": {"type": ["integer", "null"], "description": "循环提醒小时 0-23"},
-                    "loop_minute": {"type": ["integer", "null"], "description": "循环提醒分钟 0-59"},
-                    "loop_weekday": {"type": ["integer", "null"], "description": "每周循环时 0=周一, 6=周日"},
-                    "loop_day": {"type": ["integer", "null"], "description": "每月/每年循环时表示几号"},
-                    "loop_month": {"type": ["integer", "null"], "description": "每年循环时表示月份 1-12"},
-                    "group_id": {"type": ["integer", "null"], "description": "新的群组 ID，可选"}
-                },
-                "required": ["memo_id"]
-            },
-            "strict": True
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "delete_memo",
-            "description": "删除指定的备忘录",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "memo_id": {"type": "integer", "description": "备忘录 ID"}
-                },
-                "required": ["memo_id"]
-            },
-            "strict": True
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "list_memos",
-            "description": "列出所有备忘录",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": []
-            },
-            "strict": True
-        }
-    }
-]
-
-SYSTEM_PROMPT =(
-    "你是备忘录助理。用户可能创建、更新、删除或查询备忘录。"
-    "如果用户请求与备忘录相关，调用对应工具：  "
-    "- 创建 → create_memo  "
-    "- 更新 → update_memo  "
-    "- 删除 → delete_memo  "
-    "- 查询 → list_memos  "
-    "如果请求无关备忘录，直接用自然语言回答即可。 "
-)
-
 plugin_config = get_plugin_config(Config)
 
-memo_command = on_command("memo", rule=to_me(), force_whitespace=True)
-@memo_command.handle()
-async def handle_memo_command(bot: Bot, event: MessageEvent):
-    content = event.get_plaintext()
-    llm_client = AsyncOpenAI(api_key=plugin_config.live_shiro_deep_seek_key, base_url="https://api.deepseek.com/beta")
-
-    llm_response = await llm_client.chat.completions.create(
-        model="deepseek-chat",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": content}
-        ],
-        max_tokens=1024,
-        tools=memo_tools
-    )
-
-    reply_text = "不想理你喵~"
-    if getattr(llm_response, "choices", None):
-        choice = llm_response.choices[0]
-        message = getattr(choice, "message", None)
-        if message:
-            if function_call := getattr(message, "function_call", None):
-                reply_text = f"想要调用工具{function_call.get('name')}"
-            elif message_content := getattr(message, "content", None):
-                reply_text = message_content
-
-    await memo_command.finish(Message([
-        MessageSegment.reply(event.message_id),
-        MessageSegment.text(reply_text)
-    ]))
+memo_command_group = CommandGroup("memo", rule=to_me())
 
 async def memo_bot_connect_handler(bot: Bot) -> Optional[Message]:
     await load_all_memo_jobs()
