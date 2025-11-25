@@ -26,66 +26,53 @@ memo_tools = [
         "type": "function",
         "function": {
             "name": "create_memo",
-            "strict": True,
             "description": "创建一个新的备忘录提醒，支持单次或循环提醒",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "group_id": {"type": "integer", "description": "群组 ID，如果是群提醒，可不填则默认为私聊"},
+                    "group_id": {"type": ["integer", "null"], "description": "群组 ID，如果是群提醒，可不填则默认为私聊"},
                     "content": {"type": "string", "description": "备忘录的文本内容"},
-                    "scheduled_time": {"type": ["string", "null"], "description": "单次提醒的时间，ISO 8601 格式，如 '2025-11-25T15:30:00'，循环提醒可填 null"},
-                    "loop_type": {"type": "integer", "description": "循环类型：0=不循环, 1=每日, 2=每周, 3=每月, 4=每年"},
-                    "loop_param": {
-                        "type": ["object", "null"],
-                        "description": "循环提醒参数，根据 loop_type 决定哪些字段生效",
-                        "properties": {
-                            "hour": {"type": "integer", "description": "提醒小时 0-23"},
-                            "minute": {"type": "integer", "description": "提醒分钟 0-59"},
-                            "weekday": {"type": "integer", "description": "每周循环时 0=周一, 6=周日"},
-                            "day": {"type": "integer", "description": "每月/每年循环时表示几号"},
-                            "month": {"type": "integer", "description": "每年循环时表示月份 1-12"}
-                        }
-                    }
+                    "scheduled_time": {"type": ["string", "null"], "description": "单次提醒时间，ISO 8601"},
+                    "loop_type": {"type": "integer", "description": "循环类型：0=不循环,1=每日,2=每周,3=每月,4=每年"},
+                    "loop_hour": {"type": ["integer", "null"], "description": "循环提醒小时 0-23"},
+                    "loop_minute": {"type": ["integer", "null"], "description": "循环提醒分钟 0-59"},
+                    "loop_weekday": {"type": ["integer", "null"], "description": "每周循环时 0=周一, 6=周日"},
+                    "loop_day": {"type": ["integer", "null"], "description": "每月/每年循环时表示几号"},
+                    "loop_month": {"type": ["integer", "null"], "description": "每年循环时表示月份 1-12"}
                 },
                 "required": ["content", "loop_type"]
-            }
+            },
+            "strict": True
         }
     },
     {
         "type": "function",
         "function": {
             "name": "update_memo",
-            "strict": True,
             "description": "更新已有的备忘录，可修改内容、提醒时间或循环参数",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "memo_id": {"type": "integer", "description": "需要更新的备忘录 ID"},
                     "content": {"type": ["string", "null"], "description": "新的备忘录内容，可选"},
-                    "scheduled_time": {"type": ["string", "null"], "description": "新的单次提醒时间，ISO 8601 格式，可选"},
+                    "scheduled_time": {"type": ["string", "null"], "description": "新的单次提醒时间，ISO 8601，可选"},
                     "loop_type": {"type": ["integer", "null"], "description": "新的循环类型，可选"},
-                    "loop_param": {
-                        "type": ["object", "null"],
-                        "description": "新的循环提醒参数，可选",
-                        "properties": {
-                            "hour": {"type": "integer", "description": "提醒小时 0-23"},
-                            "minute": {"type": "integer", "description": "提醒分钟 0-59"},
-                            "weekday": {"type": "integer", "description": "每周循环时 0=周一, 6=周日"},
-                            "day": {"type": "integer", "description": "每月/每年循环时表示几号"},
-                            "month": {"type": "integer", "description": "每年循环时表示月份 1-12"}
-                        }
-                    },
+                    "loop_hour": {"type": ["integer", "null"], "description": "循环提醒小时 0-23"},
+                    "loop_minute": {"type": ["integer", "null"], "description": "循环提醒分钟 0-59"},
+                    "loop_weekday": {"type": ["integer", "null"], "description": "每周循环时 0=周一, 6=周日"},
+                    "loop_day": {"type": ["integer", "null"], "description": "每月/每年循环时表示几号"},
+                    "loop_month": {"type": ["integer", "null"], "description": "每年循环时表示月份 1-12"},
                     "group_id": {"type": ["integer", "null"], "description": "新的群组 ID，可选"}
                 },
                 "required": ["memo_id"]
-            }
+            },
+            "strict": True
         }
     },
     {
         "type": "function",
         "function": {
             "name": "delete_memo",
-            "strict": True,
             "description": "删除指定的备忘录",
             "parameters": {
                 "type": "object",
@@ -93,20 +80,21 @@ memo_tools = [
                     "memo_id": {"type": "integer", "description": "备忘录 ID"}
                 },
                 "required": ["memo_id"]
-            }
+            },
+            "strict": True
         }
     },
     {
         "type": "function",
         "function": {
             "name": "list_memos",
-            "strict": True,
             "description": "列出所有备忘录",
             "parameters": {
                 "type": "object",
                 "properties": {},
                 "required": []
-            }
+            },
+            "strict": True
         }
     }
 ]
