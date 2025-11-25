@@ -6,7 +6,6 @@ from nonebot.rule import to_me, ArgumentParser
 from nonebot.params import ShellCommandArgs
 
 parser = ArgumentParser()
-parser.add_argument("-h", "--help", help="帮助信息")
 parser.add_argument("-c", "--cols", type=int, default=4, help="表情包列数，默认为4")
 parser.add_argument("-r", "--rows", type=int, default=6, help="表情包行数，默认为4")
 
