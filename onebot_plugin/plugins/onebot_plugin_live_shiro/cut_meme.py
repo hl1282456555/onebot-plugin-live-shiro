@@ -145,7 +145,7 @@ async def upload_group_file_segment(bot: Bot, group_id: int, file_path: Path) ->
         group_id=group_id,
         file=str(file_path.resolve()),  # 使用绝对路径
         name=file_path.name,
-        folder="NoneBot"  # 可选群文件夹
+        folder="小助理专用"  # 可选群文件夹
     )
 
     file_id = file_info.get("file_id")
