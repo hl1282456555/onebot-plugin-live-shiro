@@ -5,7 +5,7 @@ import aiohttp
 import py7zr
 
 from nonebot import on_shell_command
-from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment
+from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, GroupMessageEvent
 from nonebot.rule import to_me, ArgumentParser
 from nonebot.params import ShellCommandArgs
 
@@ -90,7 +90,7 @@ async def download_images(bot: Bot, message_id: int, items: list):
 
     return saved_paths
 
-async def split_images_and_send(message_id: int, image_paths: list, rows: int = 6, cols: int = 4):
+async def split_images(message_id: int, image_paths: list, rows: int = 6, cols: int = 4):
     """
     image_paths: Path对象列表
     rows, cols: 拆分行列
@@ -126,6 +126,34 @@ async def split_images_and_send(message_id: int, image_paths: list, rows: int = 
 
     return archive_path
 
+async def upload_group_file_segment(bot: Bot, group_id: int, file_path: Path) -> MessageSegment:
+    """
+    上传本地文件到群文件，并返回可以直接发送的 MessageSegment
+
+    :param bot: Bot 实例
+    :param group_id: 群号
+    :param file_path: 本地文件路径
+    :return: MessageSegment("file", {"file_id": file_id})
+    """
+    file_path = Path(file_path)
+    if not file_path.exists() or not file_path.is_file():
+        raise FileNotFoundError(f"文件不存在: {file_path}")
+
+    # 调用 OneBot v11 API 上传群文件
+    file_info = await bot.call_api(
+        "upload_group_file",
+        group_id=group_id,
+        file=str(file_path.resolve()),  # 使用绝对路径
+        name=file_path.name,
+        folder="NoneBot"  # 可选群文件夹
+    )
+
+    file_id = file_info.get("file_id")
+    if not file_id:
+        raise RuntimeError("上传群文件失败，未返回 file_id")
+
+    return MessageSegment("file", {"file_id": file_id})
+
 def remove_cut_meme_cache(message_id: int):
     cache_dir = Path("./cache/cut_meme") / str(message_id)
     if cache_dir.exists() and cache_dir.is_dir():
@@ -142,6 +170,11 @@ parser.add_argument("-r", "--rows", type=int, default=6, help="表情包行数�
 cut_meme_command = on_shell_command("cut_meme", rule=to_me(), parser=parser)
 @cut_meme_command.handle()
 async def handle_cut_meme(bot: Bot, event: MessageEvent, shell_args = ShellCommandArgs()):
+    if not isinstance(event, GroupMessageEvent):
+        await cut_meme_command.finish(Message([
+            MessageSegment.text("表情包拆分功能仅支持群聊使用喵~")
+        ]))
+
     arg_dict = vars(shell_args)
     if "status" in arg_dict:
         await cut_meme_command.finish(
@@ -164,11 +197,11 @@ async def handle_cut_meme(bot: Bot, event: MessageEvent, shell_args = ShellComma
             ]))
     
     image_paths = await download_images(bot, event.message_id, message_contents)
-    archive_path = await split_images_and_send(event.message_id, image_paths, rows=arg_dict["rows"], cols=arg_dict["cols"])
+    archive_path = await split_images(event.message_id, image_paths, rows=arg_dict["rows"], cols=arg_dict["cols"])
     await cut_meme_command.send(Message([
         MessageSegment.reply(event.message_id),
         MessageSegment.text("表情包已生成，请查收~"),
-        MessageSegment("file", {"file": str(archive_path.resolve())})
+        await upload_group_file_segment(bot, event.group_id, archive_path)
     ]))
 
     remove_cut_meme_cache(event.message_id)
