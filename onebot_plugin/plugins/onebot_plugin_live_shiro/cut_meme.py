@@ -176,13 +176,12 @@ HELP_MSG = (
     "✂️ 表情包拆分助手使用说明 ✂️\n"
     "--------------------------------\n"
     "基本用法：\n"
-    "1. 发送 [图片] @Bot /cut_meme\n"
+    "1. 发送 @Bot /cut_meme [图片]\n"
     "2. 引用 [图片] @Bot /cut_meme\n"
-    "3. @Bot /cut_meme [图片]\n\n"
     "可选参数：\n"
     "  -r <数字> : 设置行数 (默认6)\n"
     "  -c <数字> : 设置列数 (默认4)\n"
-    "  -h        : 查看本帮助\n\n"
+    "  -h        : 查看本帮助\n"
     "示例：\n"
     "@Bot /cut_meme -r 3 -c 3 [图片]\n"
     "--------------------------------"
@@ -191,7 +190,6 @@ HELP_MSG = (
 alc = Alconna(
     "/cut_meme",
     CommandMeta(description=HELP_MSG),
-    Option("-h|--help", help_text="显示帮助说明"),
     Option("-r|--rows", Args["rows", int, 6], help_text="拆分行数，默认6行"),
     Option("-c|--cols", Args["cols", int, 4], help_text="拆分列数，默认4列"),
     Args["items", MultiVar(Any)]
