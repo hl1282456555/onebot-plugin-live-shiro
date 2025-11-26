@@ -5,7 +5,7 @@ import aiohttp
 import py7zr
 import os
 
-from nonebot import on_shell_command, on_command
+from nonebot import on_command
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, GroupMessageEvent
 from nonebot.rule import to_me, ArgumentParser
 from nonebot.permission import SUPERUSER
@@ -197,7 +197,10 @@ alc = Alconna(
 
 cut_meme_command = on_alconna(alc, rule=to_me())
 @cut_meme_command.handle()
-async def handle_cut_meme(bot: Bot, event: GroupMessageEvent, result: Arparma = AlconnaMatches()):
+async def handle_cut_meme(bot: Bot, event: MessageEvent, result: Arparma = AlconnaMatches()):
+    if not isinstance(event, GroupMessageEvent):
+        await cut_meme_command.finish("表情包拆分功能仅支持群聊使用喵~")
+
     if result.find("help"):
         await cut_meme_command.finish(HELP_MSG)
 
