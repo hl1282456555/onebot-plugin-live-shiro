@@ -80,15 +80,15 @@ async def handle_install(args: Message = CommandArg()):
             stdout=subprocess.DEVNULL, # 或者重定向到日志文件
             stderr=subprocess.DEVNULL
         )
-        
-        await install_pip.finish(
-            f"✅ 脚本已生成并后台运行。\n"
-            f"📄 路径: {script_path}\n"
-            f"🔧 指令: {pip_command}"
-        )
-        
+
     except Exception as e:
         await install_pip.finish(f"❌ 运行脚本失败: {e}")
+    
+    await install_pip.finish(
+        f"✅ 脚本已生成并后台运行。\n"
+        f"📄 路径: {script_path}\n"
+        f"🔧 指令: {pip_command}"
+    )
 
 # 注册命令 /install_nb
 install_nb = on_command("install_nb", permission=SUPERUSER, block=True)
@@ -137,12 +137,12 @@ async def handle_nb_install(args: Message = CommandArg()):
             stderr=subprocess.DEVNULL
         )
 
-        await install_nb.finish(
-            f"✅ 已开始安装插件: {plugin_name}\n"
-            f"🚀 命令: {cmd}\n"
-            f"⚙️ 模式: 独立进程运行 (带代理)\n\n"
-            f"⚠️ 注意: 安装完成后，nb-cli 会修改配置文件，Bot 将会自动重启加载新插件。"
-        )
-
     except Exception as e:
         await install_nb.finish(f"❌ 启动安装进程失败: {e}")
+    
+    await install_nb.finish(
+        f"✅ 已开始安装插件: {plugin_name}\n"
+        f"🚀 命令: {cmd}\n"
+        f"⚙️ 模式: 独立进程运行 (带代理)\n\n"
+        f"⚠️ 注意: 安装完成后，nb-cli 会修改配置文件，Bot 将会自动重启加载新插件。"
+    )
