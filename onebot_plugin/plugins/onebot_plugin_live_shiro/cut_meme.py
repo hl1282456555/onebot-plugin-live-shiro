@@ -18,7 +18,8 @@ from nonebot_plugin_alconna import (
     Option, 
     Arparma, 
     MultiVar,
-    AlconnaMatches
+    AlconnaMatches,
+    CommandMeta
 )
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
@@ -188,7 +189,8 @@ HELP_MSG = (
 )
 
 alc = Alconna(
-    "cut_meme",
+    "/cut_meme",
+    CommandMeta(description=HELP_MSG),
     Option("-h|--help", help_text="显示帮助说明"),
     Option("-r|--rows", Args["rows", int, 6], help_text="拆分行数，默认6行"),
     Option("-c|--cols", Args["cols", int, 4], help_text="拆分列数，默认4列"),
@@ -200,9 +202,6 @@ cut_meme_command = on_alconna(alc, rule=to_me())
 async def handle_cut_meme(bot: Bot, event: MessageEvent, result: Arparma = AlconnaMatches()):
     if not isinstance(event, GroupMessageEvent):
         await cut_meme_command.finish("表情包拆分功能仅支持群聊使用喵~")
-
-    if result.find("help"):
-        await cut_meme_command.finish(HELP_MSG)
 
     try:
         rows = result.query("rows", 6)
