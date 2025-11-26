@@ -8,8 +8,18 @@ import os
 from nonebot import on_shell_command, on_command
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, GroupMessageEvent
 from nonebot.rule import to_me, ArgumentParser
-from nonebot.params import ShellCommandArgs
 from nonebot.permission import SUPERUSER
+
+from typing import Any
+from nonebot_plugin_alconna import (
+    on_alconna, 
+    Alconna, 
+    Args, 
+    Option, 
+    Arparma, 
+    MultiVar,
+    AlconnaMatches
+)
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
 
@@ -161,33 +171,44 @@ def remove_cut_meme_cache(message_id: int):
     if archive_file.exists() and archive_file.is_file():
         archive_file.unlink()
 
-parser = ArgumentParser()
-parser.add_argument("-c", "--cols", type=int, default=4, help="表情包列数，默认为4")
-parser.add_argument("-r", "--rows", type=int, default=6, help="表情包行数，默认为6")
+HELP_MSG = (
+    "✂️ 表情包拆分助手使用说明 ✂️\n"
+    "--------------------------------\n"
+    "基本用法：\n"
+    "1. 发送 [图片] @Bot /cut_meme\n"
+    "2. 引用 [图片] 发送 /cut_meme\n"
+    "3. /cut_meme [图片]\n\n"
+    "可选参数：\n"
+    "  -r <数字> : 设置行数 (默认6)\n"
+    "  -c <数字> : 设置列数 (默认4)\n"
+    "  -h        : 查看本帮助\n\n"
+    "示例：\n"
+    "/cut_meme -r 3 -c 3 [图片]\n"
+    "--------------------------------"
+)
 
-cut_meme_command = on_shell_command("cut_meme", rule=to_me(), parser=parser)
+alc = Alconna(
+    "cut_meme",
+    Option("-h|--help", help_text="显示帮助说明"),
+    Option("-r|--rows", Args["rows", int, 6], help_text="拆分行数，默认6行"),
+    Option("-c|--cols", Args["cols", int, 4], help_text="拆分列数，默认4列"),
+    Args["items", MultiVar(Any)]
+)
+
+cut_meme_command = on_alconna(alc, rule=to_me())
 @cut_meme_command.handle()
-async def handle_cut_meme(bot: Bot, event: MessageEvent, shell_args = ShellCommandArgs()):
-    if not isinstance(event, GroupMessageEvent):
-        await cut_meme_command.finish(Message([
-            MessageSegment.text("表情包拆分功能仅支持群聊使用喵~")
-        ]))
+async def handle_cut_meme(bot: Bot, event: GroupMessageEvent, result: Arparma = AlconnaMatches()):
+    if result.find("help"):
+        await cut_meme_command.finish(HELP_MSG)
 
     try:
-        arg_dict = vars(shell_args)
-        if "status" in arg_dict:
-            await cut_meme_command.finish(
-                Message([
-                    MessageSegment.reply(event.message_id),
-                    MessageSegment.text(arg_dict["message"])
-                ])
-            )
+        rows = result.query("rows", 6)
+        cols = result.query("cols", 4)
 
         message_contents = extract_images_and_files(event.message)
 
-        if not message_contents:
-            if event.reply:
-                message_contents = extract_images_and_files(event.reply.message)
+        if not message_contents and event.reply:
+            message_contents = extract_images_and_files(event.reply.message)
 
             if not message_contents:
                 await cut_meme_command.finish(Message([
@@ -196,7 +217,7 @@ async def handle_cut_meme(bot: Bot, event: MessageEvent, shell_args = ShellComma
                 ]))
 
         image_paths = await download_images(bot, event.message_id, message_contents)
-        archive_path = await split_images(event.message_id, image_paths, rows=arg_dict["rows"], cols=arg_dict["cols"])
+        archive_path = await split_images(event.message_id, image_paths, rows=rows, cols=cols)
         await upload_group_file(bot, event.group_id, archive_path)
 
         await cut_meme_command.finish(
