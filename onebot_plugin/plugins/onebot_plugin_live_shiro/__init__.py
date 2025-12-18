@@ -33,7 +33,7 @@ async def union_bot_connect_handler(bot: Bot) -> None:
 
     message = Message([
         MessageSegment.text("小助手已经安全启动，今天又是美好的一天喵~\n"),
-        MessageSegment.text("服务启动状态：\n")
+        MessageSegment.text("服务启动状态：")
     ])
 
     if alive_message := await alive.alive_bot_connect_handler(bot):

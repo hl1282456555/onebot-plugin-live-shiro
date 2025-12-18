@@ -8,6 +8,7 @@ from nonebot_plugin_apscheduler import scheduler
 from bilibili_api import live
 
 from ..config import Config
+from .common import bili_credential
 
 from pathlib import Path
 import json
@@ -35,7 +36,7 @@ def save_live_status_to_cache(status: int):
 async def check_live_status(bot: Bot):
     global live_status
 
-    live_room = live.LiveRoom(plugin_config.live_shiro_bilibili_live_room_id)
+    live_room = live.LiveRoom(plugin_config.live_shiro_bilibili_live_room_id, credential=bili_credential)
     live_room_info = await live_room.get_room_info()
     room_info = live_room_info["room_info"]
     logger.info(f"room_info: {json.dumps(room_info, ensure_ascii=False)}")

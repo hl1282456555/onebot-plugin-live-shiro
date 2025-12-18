@@ -16,13 +16,12 @@ from nonebot_plugin_apscheduler import scheduler
 from ..config import Config
 from .dynamic_type import DynamicType, MajorType
 from ..message_render import *
+from .common import bili_credential
 
 driver_config = get_driver().config
 plugin_config = get_plugin_config(Config)
 
 last_dynamic_timestamp: int = int(time.time())
-
-bili_user = user.User(plugin_config.live_shiro_uid)
 
 def image_bytes_to_data_url(img_bytes: bytes) -> str:
     img = Image.open(BytesIO(img_bytes))
@@ -40,6 +39,8 @@ async def fetch_all_dynamics() -> list[dict]:
 
     next_offset = ""
     dynamics = []
+
+    bili_user = user.User(plugin_config.live_shiro_uid, credential = bili_credential)
 
     while True:
         page = await bili_user.get_dynamics_new(next_offset)
@@ -67,7 +68,9 @@ def get_last_dynamic(dynamics: list[dict]) -> Optional[dict]:
         if dynamic_type == DynamicType.NONE.type_name:
             continue
 
-        if not isinstance(pub_ts, int):
+        try:
+            pub_ts = int(pub_ts)
+        except (TypeError, ValueError):
             continue
 
         temp.append((pub_ts, item))
@@ -349,6 +352,12 @@ async def get_latest_dynamic(debug_call: bool) -> None:
         return
 
     pub_ts = last_dynamic.get("modules", {}).get("module_author", {}).get("pub_ts", 0)
+
+    try:
+        pub_ts = int(pub_ts)
+    except (TypeError, ValueError):
+        return
+
     pub_ts_time = pub_ts_to_str(pub_ts)
 
     global last_dynamic_timestamp

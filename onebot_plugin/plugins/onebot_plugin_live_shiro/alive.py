@@ -26,15 +26,16 @@ async def shiro_sleep_clock():
         ]))
 
 async def alive_bot_connect_handler(bot: Bot) -> Optional[Message]:
-    scheduler.add_job(
-        shiro_sleep_clock,
-        trigger="cron",
-        hour=plugin_config.live_shiro_sleep_clock_hour,
-        minute=plugin_config.live_shiro_sleep_clock_minute,
-        id="job_shiro_sleep_clock",
-    )
+    # scheduler.add_job(
+    #     shiro_sleep_clock,
+    #     trigger="cron",
+    #     hour=plugin_config.live_shiro_sleep_clock_hour,
+    #     minute=plugin_config.live_shiro_sleep_clock_minute,
+    #     id="job_shiro_sleep_clock",
+    # )
 
-    return Message(f"老大的助眠闹钟 {plugin_config.live_shiro_sleep_clock_hour}点{plugin_config.live_shiro_sleep_clock_minute:02d}分 已安全启动喵~")
+    # return Message(f"老大的助眠闹钟 {plugin_config.live_shiro_sleep_clock_hour}点{plugin_config.live_shiro_sleep_clock_minute:02d}分 已安全启动喵~")
+    return None
 
 
 __all__ = ["alive_bot_connect_handler", "alive_command"]
