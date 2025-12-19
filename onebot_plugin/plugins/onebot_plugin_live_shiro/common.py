@@ -3,11 +3,11 @@ from nonebot.rule import to_me
 from nonebot.adapters.onebot.v11 import Message, MessageSegment, MessageEvent
 
 from .config import Config
+from . import message_render
 
 import aiosqlite
 
 from contextlib import asynccontextmanager
-from prettytable import PrettyTable
 
 @asynccontextmanager
 async def get_db_connection(path: str):
@@ -38,30 +38,6 @@ steam_command = on_command("steam", rule=to_me(), force_whitespace=True)
 async def _():
     await steam_command.finish(f"Shiro的Steam好友码是：{plugin_config.live_shiro_steam_friend_code}")
 
-def format_table(data, headers):
-    """
-    将二维数组格式化为PrettyTable字符串，适合发送到QQ等宽显示。
-    
-    data: List[List[str]]，每个子列表为一行
-    headers: List[str]，表头列表
-    返回: str，带代码块的表格
-    """
-    if not data or not headers:
-        return "```\n空表格\n```"
-    
-    table = PrettyTable()
-    table.field_names = headers
-    
-    # 添加每一行
-    for row in data:
-        table.add_row(row)
-    
-    # 全部左对齐，中文对齐良好
-    for h in headers:
-        table.align[h] = "l"
-    
-    # 返回带代码块的表格
-    return f"```\n{table}\n```"
 
 help_list = [
     ["/", "@小助手 /bible", "查看圣经"],
@@ -75,11 +51,16 @@ help_list = [
     ["/", "@小助手 /steam", "查看Shiro的stream好友码"]
 ]
 
-help_command = on_command("help", aliases={"h", "help"}, rule=to_me())
+help_command = on_command("help", aliases={"h", "帮助", "菜单"}, rule=to_me())
 @help_command.handle()
 async def _(event: MessageEvent):
+    table_data = {
+        "title": "小助手指令列表",
+        "headers": ["前置条件", "指令格式", "功能说明"],
+        "rows": help_list
+    }
+    image_data = await message_render.render_png_from_template(message_render.RenderPageType.TABLE, table_data, width=800)
     await help_command.finish(message=Message([
         MessageSegment.reply(event.message_id),
-        MessageSegment.text("感谢垂询小助手功能列表，以下是使用方式：\n"),
-        MessageSegment.text(format_table(help_list, ["前缀", "命令", "说明"]))
+        MessageSegment.image(image_data)
     ]))

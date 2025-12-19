@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary-color: #4a90e2; /* 表头颜色 */
+            --border-color: #e1e4e8;
+            --stripe-bg: #f8f9fa;
+            --text-color: #24292e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: transparent; /* 确保背景透明以便后续裁剪 */
+            display: inline-block; /* 让body适应内容宽度 */
+        }
+
+        /* 截图定位锚点 */
+        .content-wrapper {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            overflow: hidden; /* 圆角裁切 */
+            display: inline-block; /* 宽度自适应 */
+            min-width: 300px;
+            max-width: 1200px;
+        }
+
+        .table-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+
+        th {
+            background-color: #f1f8ff;
+            font-weight: 600;
+            white-space: nowrap; /* 表头不换行 */
+        }
+
+        /* 斑马纹 */
+        tbody tr:nth-child(even) {
+            background-color: var(--stripe-bg);
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* 内容过长自动换行 */
+        td {
+            word-break: break-all;
+            max-width: 400px; /* 限制单元格最大宽度，防止图片过宽 */
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="content-wrapper">
+        {% if title %}
+        <div class="table-header">{{ title }}</div>
+        {% endif %}
+        
+        <table>
+            <thead>
+                <tr>
+                    {% for head in headers %}
+                    <th>{{ head }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    {% for cell in row %}
+                    <td>{{ cell }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

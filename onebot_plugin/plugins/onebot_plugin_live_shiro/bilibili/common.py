@@ -161,9 +161,18 @@ async def handle_bili_login_command(bot):
             await asyncio.sleep(1)
         else:
             await bili_login_command.finish(message=MessageSegment.text("B登陆登陆失败，请重试喵~"))
-        
+
         bili_credential = qr_login.get_credential()
         save_dict_to_json(bili_credential.get_cookies())
         await bili_login_command.finish(message=MessageSegment.text("B站成功登陆喵~"))
+
+bili_get_credential_command = on_command("bili_get_credential", rule=to_me(), permission=SUPERUSER)
+@bili_get_credential_command.handle()
+async def _():
+    global bili_credential
+    if bili_credential and bili_credential.check_valid():
+        await bili_get_credential_command.finish(message=MessageSegment.text(f"B站当前Credential有效喵~\n{bili_credential.get_cookies()}"))
+    else:
+        await bili_get_credential_command.finish(message=MessageSegment.text("B站当前Credential无效喵~"))
 
 __all__ = ["bili_credential"]
