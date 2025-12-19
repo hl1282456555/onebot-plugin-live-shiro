@@ -175,4 +175,9 @@ async def _():
     else:
         await bili_get_credential_command.finish(message=MessageSegment.text("B站当前Credential无效喵~"))
 
+bili_check_credential_command = on_command("bili_check_credential", rule=to_me(), permission=SUPERUSER)
+@bili_check_credential_command.handle()
+async def _(bot: Bot):
+    await check_bili_credential_validity(bot)
+
 __all__ = ["bili_credential"]
