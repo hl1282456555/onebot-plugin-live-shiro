@@ -1,7 +1,7 @@
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, Any
 
 from jinja2 import Environment, FileSystemLoader
 from PIL import Image
@@ -31,6 +31,7 @@ class ForwardData(TypedDict):
 class RenderPageType(Enum):
     NORMAL = "normal.html"
     FORWARD = "forward.html"
+    TABLE = "table.html"
 
 
 def crop_transparent_edges(img: Image.Image, border: int = 10) -> Image.Image:
@@ -95,7 +96,6 @@ async def _render_png_from_html(html_str: str, width: int = 800) -> bytes:
     img.save(buf, format="PNG")
     return buf.getvalue()
 
-
 async def render_png_from_template(render_type: RenderPageType, data: dict, width: int = 800) -> bytes:
     """从模板数据生成 PNG"""
     if render_type == RenderPageType.NORMAL:
@@ -112,8 +112,11 @@ async def render_png_from_template(render_type: RenderPageType, data: dict, widt
         # forwarded_card_url 必须存在，否则给个空字符串兜底
         data["forwarded_card_url"] = data.get("forwarded_card_url", "")
 
-    else:
-        raise ValueError(f"Unsupported render_type: {render_type}")
+    elif render_type == RenderPageType.TABLE:
+            # 设置默认值，防止 jinja2 报错
+            data.setdefault("headers", [])  # list[str]
+            data.setdefault("rows", [])     # list[list[str/int]]
+            data.setdefault("title", "")    # str
 
     template = env.get_template(render_type.value)
     html_str = template.render(data)
