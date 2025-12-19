@@ -371,6 +371,20 @@ async def get_latest_dynamic(debug_call: bool) -> None:
 
     logger.info(f"Shiro 的最新动态发布时间：{pub_ts_time}")
 
+    basic = last_dynamic.get('basic', {})
+    if basic.get('is_only_fans', False):
+        if debug_call:
+            for user_id in driver_config.superusers:
+                await bot.send_private_msg(user_id=int(user_id), message=MessageSegment.text("Shiro刚刚发布了一条充电动态，请注意查收喵~"))
+        else:
+            for group_id in plugin_config.live_shiro_group_ids:
+                await bot.send_group_msg(group_id=group_id, message=Message([
+                    MessageSegment.at("all"),
+                    MessageSegment.text(" Shiro刚刚发布了一条充电动态，请注意查收喵~")
+                ]))
+        logger.info("已处理了一条充电动态，跳过后续操作！")
+        return
+
     dynamic_type = DynamicType.from_dynamic_type(last_dynamic.get("type", ""))
 
     orig = {}
@@ -493,11 +507,33 @@ from nonebot.rule import to_me
 test_command = on_command("test_dynamic", rule=to_me(), permission=SUPERUSER)
 @test_command.handle()
 async def test_dynamic_handler() -> None:
-    global last_dynamic_timestamp
-    pre_last_time = last_dynamic_timestamp
-    last_dynamic_timestamp = 0
-    await get_latest_dynamic(debug_call=False)
-    last_dynamic_timestamp = pre_last_time
+    all_dynamics = await fetch_all_dynamics()
+    if not all_dynamics:
+        await test_command.finish("未找到动态")
+
+    temp = []
+    for item in all_dynamics:
+        modules = item.get("modules", {})
+        author = modules.get("module_author", {})
+        pub_ts = author.get("pub_ts")
+
+        try:
+            pub_ts = int(pub_ts)
+        except (TypeError, ValueError):
+            continue
+
+        temp.append((pub_ts, item))
+
+    # 按发布时间倒序排序
+    temp.sort(key=lambda x: x[0], reverse=True)
+
+    # 取前五条
+    for _, item in temp[:5]:
+        basic = item.get('basic', {})
+        if basic.get('is_only_fans', False):
+            await test_command.finish(f"Shiro刚刚发布了一条充电动态，请注意查收喵~")
+
+    await test_command.finish("未找到充电动态")
 
 async def dynamic_bot_connect_handler(bot: Bot) -> Optional[Message]:
     scheduler.add_job(
