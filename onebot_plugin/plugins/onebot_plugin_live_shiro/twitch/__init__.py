@@ -1,18 +1,18 @@
 from typing import Optional
+import asyncio
+import json
+import aiohttp
+from aiohttp_socks import ProxyConnector
+from aiohttp import web
 
-from nonebot import get_plugin_config, get_bot, logger
+from nonebot import get_plugin_config, get_bot, get_driver, logger
 from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 
 from ..config import Config
 
-
-import asyncio
-import json
-import aiohttp
-from aiohttp_socks import ProxyConnector
-
 plugin_config = get_plugin_config(Config)
+dirver_config = get_driver().config
 
 # ==============================
 # ⚙️ 配置区
@@ -20,36 +20,77 @@ plugin_config = get_plugin_config(Config)
 CLIENT_ID = plugin_config.live_shiro_twitch_client_id
 CLIENT_SECRET = plugin_config.live_shiro_twitch_client_secret
 BROADCASTER_ID = "629147503"  # 主播ID
-PROXY_URL = "http://127.0.0.1:10808"
+PROXY_URL = "http://127.0.0.1:10808"  # HTTP/HTTPS 代理端口
+
+# OAuth / cloudflared 配置
+REDIRECT_URI = plugin_config.live_shiro_twitch_redirect_uri
+LOCAL_OAUTH_HOST = plugin_config.live_shiro_twitch_oauth_host
+LOCAL_OAUTH_PORT = plugin_config.live_shiro_twitch_oauth_port
+OAUTH_SCOPE = plugin_config.live_shiro_twitch_oauth_scope
 
 # ==============================
-# 🚀 核心逻辑
+# 🔑 全局变量
 # ==============================
-ACCESS_TOKEN = None  # 启动时自动生成
+ACCESS_TOKEN: Optional[str] = None
+OAUTH_CODE: Optional[str] = None
 
 # ==============================
-# 🔑 获取 App Access Token
+# 🔗 OAuth URL 生成
 # ==============================
-async def get_app_token():
+def get_auth_url() -> str:
+    return (
+        "https://id.twitch.tv/oauth2/authorize"
+        f"?client_id={CLIENT_ID}"
+        f"&redirect_uri={REDIRECT_URI}"
+        "&response_type=code"
+        f"&scope={OAUTH_SCOPE}"
+    )
+
+# ==============================
+# 🔑 本地 OAuth 回调服务
+# ==============================
+async def oauth_callback(request: web.Request):
+    global OAUTH_CODE
+    OAUTH_CODE = request.query.get("code")
+    if not OAUTH_CODE:
+        return web.Response(text="授权失败，没有 code", status=400)
+    return web.Response(text="Twitch 授权成功，可以关闭页面了~")
+
+async def start_oauth_server():
+    app = web.Application()
+    app.router.add_get("/twitch/callback", oauth_callback)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, LOCAL_OAUTH_HOST, LOCAL_OAUTH_PORT)
+    await site.start()
+    logger.info(f"✅ OAuth server 已启动 http://{LOCAL_OAUTH_HOST}:{LOCAL_OAUTH_PORT}/twitch/callback")
+
+# ==============================
+# 🔑 使用 code 获取 User Access Token
+# ==============================
+async def get_user_token(code: str):
     global ACCESS_TOKEN
     url = "https://id.twitch.tv/oauth2/token"
     params = {
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET,
-        "grant_type": "client_credentials"
+        "code": code,
+        "grant_type": "authorization_code",
+        "redirect_uri": REDIRECT_URI,
     }
+
     connector = ProxyConnector.from_url(PROXY_URL)
     async with aiohttp.ClientSession(connector=connector) as session:
         async with session.post(url, params=params) as resp:
             data = await resp.json()
             ACCESS_TOKEN = data.get("access_token")
             if ACCESS_TOKEN:
-                logger.info("✅ 成功获取 App Access Token")
+                logger.info("✅ 成功获取 User Access Token")
             else:
-                logger.error(f"❌ 获取 token 失败: {data}")
+                logger.error(f"❌ 获取 User token 失败: {data}")
 
 # ==============================
-# 检查主播状态
+# 🔍 检查主播状态
 # ==============================
 async def check_stream_status():
     connector = ProxyConnector.from_url(PROXY_URL)
@@ -68,20 +109,21 @@ async def check_stream_status():
                         group_id=group_id,
                         message=Message([
                             MessageSegment.at('all'),
-                            MessageSegment.text(f" 🎬 {data['data'][0]['user_name']} 当前正在直播！\n标题：{data['data'][0].get('title', '无标题')}")
+                            MessageSegment.text(
+                                f"🎬 {data['data'][0]['user_name']} 当前正在直播！\n标题：{data['data'][0].get('title', '无标题')}"
+                            )
                         ])
                     )
 
 # ==============================
-# EventSub 注册
+# 🚀 EventSub 注册
 # ==============================
 async def subscribe_eventsub(session: aiohttp.ClientSession, session_id: str):
-    connector = ProxyConnector.from_url(PROXY_URL)
     url = "https://api.twitch.tv/helix/eventsub/subscriptions"
     headers = {
         "Client-ID": CLIENT_ID,
         "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
 
     async def sub(event_type: str):
@@ -96,76 +138,103 @@ async def subscribe_eventsub(session: aiohttp.ClientSession, session_id: str):
         }
         async with session.post(url, headers=headers, json=payload) as resp:
             r = await resp.json()
-            logger.info(f"✅ 已注册 {event_type} 订阅: {r}")
+            logger.info(f"📡 EventSub {event_type}: {r}")
 
     await sub("stream.online")
     await sub("stream.offline")
 
 # ==============================
-# EventSub WebSocket 监听
+# 🌐 EventSub WebSocket 监听
 # ==============================
 async def listen_eventsub():
     connector = ProxyConnector.from_url(PROXY_URL)
     url = "wss://eventsub.wss.twitch.tv/ws"
+
     async with aiohttp.ClientSession(connector=connector) as session, \
-               session.ws_connect(url) as ws:
+            session.ws_connect(url) as ws:
+
         logger.info("🔗 已连接 Twitch EventSub WebSocket")
 
         async for msg in ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 data = json.loads(msg.data)
-                metadata = data.get("metadata", {})
-                message_type = metadata.get("message_type")
+                meta = data.get("metadata", {})
+                msg_type = meta.get("message_type")
 
-                if message_type == "session_welcome":
+                if msg_type == "session_welcome":
                     session_id = data["payload"]["session"]["id"]
-                    logger.info(f"🪄 Session ID: {session_id}")
+                    logger.info(f"🪄 EventSub Session ID: {session_id}")
                     await subscribe_eventsub(session, session_id)
 
-                elif message_type == "notification":
+                elif msg_type == "notification":
                     payload = data["payload"]
                     event_type = payload["subscription"]["type"]
                     event = payload["event"]
 
                     bot = get_bot()
                     if event_type == "stream.online":
-                        for group_id in plugin_config.live_shiro_group_ids:
+                        for gid in plugin_config.live_shiro_group_ids:
                             await bot.send_group_msg(
-                                group_id=group_id,
+                                group_id=gid,
                                 message=Message([
-                                    MessageSegment.at('all'),
-                                    MessageSegment.text(f" 🎬 {event['broadcaster_user_name']} 开播啦！\n标题：{event.get('title', '无标题')}")
+                                    MessageSegment.at("all"),
+                                    MessageSegment.text(
+                                        f"🎬 {event['broadcaster_user_name']} 开播啦！\n标题：{event.get('title', '无标题')}"
+                                    )
                                 ])
                             )
+
                     elif event_type == "stream.offline":
-                        for group_id in plugin_config.live_shiro_group_ids:
+                        for gid in plugin_config.live_shiro_group_ids:
                             await bot.send_group_msg(
-                                group_id=group_id,
+                                group_id=gid,
                                 message=Message([
-                                    MessageSegment.at('all'),
-                                    MessageSegment.text(f" 🏁 {event['broadcaster_user_name']} 下播了～")
+                                    MessageSegment.at("all"),
+                                    MessageSegment.text(
+                                        f"🏁 {event['broadcaster_user_name']} 下播了～"
+                                    )
                                 ])
                             )
 
-                elif message_type == "session_reconnect":
-                    new_url = data["payload"]["session"]["reconnect_url"]
-                    logger.warning(f"🔄 Twitch要求重连：{new_url}")
-                    await listen_eventsub()  # 递归重连，不需要 return
+async def wait_for_oauth_code(timeout: int = 120):  # 5 分钟超时
+    global OAUTH_CODE
+    start = asyncio.get_event_loop().time()
+    while OAUTH_CODE is None:
+        await asyncio.sleep(1)
+        if asyncio.get_event_loop().time() - start > timeout:
+            logger.error("⏱ OAuth 授权超时，停止启动 bot")
+            return False
+    return True
 
-            elif msg.type == aiohttp.WSMsgType.ERROR:
-                logger.error(f"WebSocket错误: {msg.data}")
-                break
-
+# ==============================
+# 🏁 Nonebot 启动入口
+# ==============================
 async def twitch_bot_connect_handler(bot: Bot) -> Optional[Message]:
-    logger.info("🚀 获取 Twitch App Access Token...")
-    await get_app_token()
-    if not ACCESS_TOKEN:
-        logger.error("❌ 无法获取 token，插件停止启动")
-        return
+    logger.info("🚀 启动 Twitch OAuth 回调服务...")
+    await start_oauth_server()
 
-    logger.info("📡 检查主播状态...")
-    await check_stream_status()
+    auth_url = get_auth_url()
+    logger.warning(f"👉 请在浏览器打开完成授权：\n{auth_url}")
+    for user_id in dirver_config.superusers:
+        await bot.send_private_msg(user_id=user_id, message=Message(f"👉 请在浏览器打开完成Twitch授权：\n{auth_url}"))
+
+    # 等待授权，但加超时
+    success = await wait_for_oauth_code()
+    if not success:
+        logger.error("❌ OAuth 授权失败")
+        return Message("Twitch OAuth 授权失败")
+
+    if not OAUTH_CODE:
+        logger.error("❌ OAuth 授权失败")
+        return Message("Twitch OAuth 授权失败")
+
+    await get_user_token(OAUTH_CODE)
+    if not ACCESS_TOKEN:
+        logger.error("❌ 获取 User Token 失败")
+        return Message("Twitch User Token 获取失败")
 
     logger.info("🔗 启动 EventSub WebSocket 监听...")
     asyncio.create_task(listen_eventsub())
-    return Message("twitch监听已启动喵~")
+
+    logger.info("✅ Twitch WebSocket 监听已启动")
+    return Message("Twitch 监听已启动喵~")

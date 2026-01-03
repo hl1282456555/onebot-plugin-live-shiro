@@ -14,3 +14,7 @@ class Config(BaseModel):
     live_shiro_twitch_client_secret: str = ""
     live_shiro_bilibili_live_room_id: int = -1
     live_shiro_deep_seek_key: str = ""
+    live_shiro_twitch_redirect_uri: str = ""
+    live_shiro_twitch_oauth_host:str = ""
+    live_shiro_twitch_oauth_port:int = -1
+    live_shiro_twitch_oauth_scope:str = ""
