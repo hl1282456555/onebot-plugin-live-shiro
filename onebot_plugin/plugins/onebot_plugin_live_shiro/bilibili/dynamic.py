@@ -506,34 +506,10 @@ from nonebot.rule import to_me
 
 test_command = on_command("test_dynamic", rule=to_me(), permission=SUPERUSER)
 @test_command.handle()
-async def test_dynamic_handler() -> None:
-    all_dynamics = await fetch_all_dynamics()
-    if not all_dynamics:
-        await test_command.finish("未找到动态")
-
-    temp = []
-    for item in all_dynamics:
-        modules = item.get("modules", {})
-        author = modules.get("module_author", {})
-        pub_ts = author.get("pub_ts")
-
-        try:
-            pub_ts = int(pub_ts)
-        except (TypeError, ValueError):
-            continue
-
-        temp.append((pub_ts, item))
-
-    # 按发布时间倒序排序
-    temp.sort(key=lambda x: x[0], reverse=True)
-
-    # 取前五条
-    for _, item in temp[:5]:
-        basic = item.get('basic', {})
-        if basic.get('is_only_fans', False):
-            await test_command.finish(f"Shiro刚刚发布了一条充电动态，请注意查收喵~")
-
-    await test_command.finish("未找到充电动态")
+async def test_dynamic_handler(bot) -> None:
+    global last_dynamic_timestamp
+    last_dynamic_timestamp = 0
+    await get_latest_dynamic(False)
 
 async def dynamic_bot_connect_handler(bot: Bot) -> Optional[Message]:
     scheduler.add_job(
